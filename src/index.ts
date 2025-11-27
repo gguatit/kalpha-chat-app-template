@@ -88,14 +88,23 @@ async function handleChatRequest(
   env: Env,
 ): Promise<Response> {
   try {
-    // Parse JSON request body
-    const { messages = [] } = (await request.json()) as {
+    // Parse JSON request body (messages + optional birthdate)
+    const { messages = [], birthdate } = (await request.json()) as {
       messages: ChatMessage[];
+      birthdate?: string | null;
     };
 
     // Add system prompt if not present
     if (!messages.some((msg) => msg.role === "system")) {
       messages.unshift({ role: "system", content: SYSTEM_PROMPT });
+    }
+
+    // If a birthdate was provided, compute zodiac and add to system context
+    if (birthdate) {
+      const zodiac = getZodiacSignFromDate(birthdate);
+      const birthContext = `사용자 생년월일: ${birthdate} (별자리: ${zodiac})`;
+      // Add as a system message as additional context
+      messages.unshift({ role: "system", content: birthContext });
     }
 
     // Simple heuristic to check whether the latest user query is horoscope-related
@@ -154,5 +163,28 @@ async function handleChatRequest(
         headers: { "content-type": "application/json" },
       },
     );
+  }
+}
+
+// Helper: determine western zodiac sign name (Korean)
+function getZodiacSignFromDate(dateString: string): string {
+  try {
+    const d = new Date(dateString);
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    if ((m === 1 && day >= 20) || (m === 2 && day <= 18)) return "물병자리";
+    if ((m === 2 && day >= 19) || (m === 3 && day <= 20)) return "물고기자리";
+    if ((m === 3 && day >= 21) || (m === 4 && day <= 19)) return "양자리";
+    if ((m === 4 && day >= 20) || (m === 5 && day <= 20)) return "황소자리";
+    if ((m === 5 && day >= 21) || (m === 6 && day <= 21)) return "쌍둥이자리";
+    if ((m === 6 && day >= 22) || (m === 7 && day <= 22)) return "게자리";
+    if ((m === 7 && day >= 23) || (m === 8 && day <= 22)) return "사자자리";
+    if ((m === 8 && day >= 23) || (m === 9 && day <= 22)) return "처녀자리";
+    if ((m === 9 && day >= 23) || (m === 10 && day <= 23)) return "천칭자리";
+    if ((m === 10 && day >= 24) || (m === 11 && day <= 22)) return "전갈자리";
+    if ((m === 11 && day >= 23) || (m === 12 && day <= 21)) return "사수자리";
+    return "염소자리";
+  } catch (e) {
+    return "알 수 없음";
   }
 }

@@ -9,6 +9,10 @@ const chatMessages = document.getElementById("chat-messages");
 const userInput = document.getElementById("user-input");
 const sendButton = document.getElementById("send-button");
 const typingIndicator = document.getElementById("typing-indicator");
+const birthdateInput = document.getElementById("birthdate-input");
+const setBirthdateButton = document.getElementById("set-birthdate-button");
+const clearBirthdateButton = document.getElementById("clear-birthdate-button");
+const birthdateDisplay = document.getElementById("birthdate-display");
 
 // Chat state
 let chatHistory = [
@@ -19,6 +23,7 @@ let chatHistory = [
   },
 ];
 let isProcessing = false;
+let userBirthdate = null; // yyyy-mm-dd string
 
 // Auto-resize textarea as user types
 userInput.addEventListener("input", function () {
@@ -36,6 +41,53 @@ userInput.addEventListener("keydown", function (e) {
 
 // Send button click handler
 sendButton.addEventListener("click", sendMessage);
+
+// Birthdate set/clear handlers
+setBirthdateButton.addEventListener("click", () => {
+  const val = birthdateInput.value;
+  if (!val) return;
+  userBirthdate = val; // format: YYYY-MM-DD
+  const zodiac = getZodiacFromDate(val);
+  birthdateDisplay.textContent = `${val} (${zodiac})`;
+  // Add assistant-like message to confirm
+  addMessageToChat("assistant", `생년월일이 설정되었습니다: ${val} (별자리: ${zodiac})`);
+  // Add to chat history as assistant message for records
+  chatHistory.push({ role: "assistant", content: `생년월일이 설정되었습니다: ${val} (별자리: ${zodiac})` });
+});
+
+clearBirthdateButton.addEventListener("click", () => {
+  userBirthdate = null;
+  birthdateInput.value = "";
+  birthdateDisplay.textContent = "";
+  addMessageToChat("assistant", "생년월일이 삭제되었습니다.");
+  chatHistory.push({ role: "assistant", content: "생년월일이 삭제되었습니다." });
+});
+
+/**
+ * Returns western zodiac sign name (Korean) based on YYYY-MM-DD
+ */
+function getZodiacFromDate(dateString) {
+  try {
+    const date = new Date(dateString);
+    const m = date.getMonth() + 1; // 1..12
+    const d = date.getDate();
+    // Zodiac ranges
+    if ((m === 1 && d >= 20) || (m === 2 && d <= 18)) return "물병자리";
+    if ((m === 2 && d >= 19) || (m === 3 && d <= 20)) return "물고기자리";
+    if ((m === 3 && d >= 21) || (m === 4 && d <= 19)) return "양자리";
+    if ((m === 4 && d >= 20) || (m === 5 && d <= 20)) return "황소자리";
+    if ((m === 5 && d >= 21) || (m === 6 && d <= 21)) return "쌍둥이자리";
+    if ((m === 6 && d >= 22) || (m === 7 && d <= 22)) return "게자리";
+    if ((m === 7 && d >= 23) || (m === 8 && d <= 22)) return "사자자리";
+    if ((m === 8 && d >= 23) || (m === 9 && d <= 22)) return "처녀자리";
+    if ((m === 9 && d >= 23) || (m === 10 && d <= 23)) return "천칭자리";
+    if ((m === 10 && d >= 24) || (m === 11 && d <= 22)) return "전갈자리";
+    if ((m === 11 && d >= 23) || (m === 12 && d <= 21)) return "사수자리";
+    return "염소자리";
+  } catch (e) {
+    return "알 수 없음";
+  }
+}
 
 /**
  * Sends a message to the chat API and processes the response
@@ -80,9 +132,10 @@ async function sendMessage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messages: chatHistory,
-      }),
+        body: JSON.stringify({
+          messages: chatHistory,
+          birthdate: userBirthdate,
+        }),
     });
 
     // Handle errors
