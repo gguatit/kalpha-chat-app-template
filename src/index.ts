@@ -17,6 +17,10 @@ const MODEL_ID = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const SYSTEM_PROMPT =
   "당신은 오직 운세 관련 질문(별자리, 오늘의 운세, 내일의 운세, 사주, 별자리 궁합 등)에만 답하는 친절한 한국어 어시스턴트입니다. 사용자가 운세와 관련 없는 질문을 하면 공손히 답변을 거부하고 운세 관련 질문을 하도록 안내하세요. 응답은 간결하고 이해하기 쉽게 한국어로 작성하세요. 또한, 응답에 절대 내부 모델 ID(@cf/...)나 시스템 메타데이터 같은 구현 세부사항을 포함하지 마세요.";
 
+// If true, when the assistant validation fails or a non-horoscope question is detected,
+// the server will return an empty assistant response instead of a refusal message.
+const SILENT_ON_FAILURE = true;
+
 // Keywords used to determine whether a user message is a horoscope-related query
 const HOROSCOPE_KEYWORDS = [
   "운세",
@@ -115,24 +119,30 @@ async function handleChatRequest(
       return HOROSCOPE_KEYWORDS.some((kw) => text.includes(kw));
     })();
 
-    // If it's not a horoscope-related question, return a single streaming
-    // assistant message that politely refuses and asks for a horoscope-related question.
+    // If it's not a horoscope-related question, either return a polite refusal
+    // or an empty message depending on `SILENT_ON_FAILURE`.
     if (!isHoroscopeQuery) {
-      const politeMsg =
-        "죄송합니다. 이 챗봇은 운세 관련 질문에만 답변합니다. 운세(예: 오늘의 운세, 별자리, 사주, 궁합)와 관련된 질문을 해주세요.";
-
-      // Stream a single JSON line that the frontend understands (newline-delimited JSON)
-      const stream = new ReadableStream({
-        start(controller) {
-          const payload = JSON.stringify({ response: politeMsg }) + "\n";
-          controller.enqueue(new TextEncoder().encode(payload));
-          controller.close();
-        },
-      });
-
-      return new Response(stream, {
-        headers: { "content-type": "text/event-stream; charset=utf-8" },
-      });
+      if (SILENT_ON_FAILURE) {
+        const stream = new ReadableStream({
+          start(controller) {
+            const payload = JSON.stringify({ response: "" }) + "\n"; // empty response
+            controller.enqueue(new TextEncoder().encode(payload));
+            controller.close();
+          },
+        });
+        return new Response(stream, { headers: { "content-type": "text/event-stream; charset=utf-8" }, });
+      } else {
+        const politeMsg =
+          "죄송합니다. 이 챗봇은 운세 관련 질문에만 답변합니다. 운세(예: 오늘의 운세, 별자리, 사주, 궁합)와 관련된 질문을 해주세요.";
+        const stream = new ReadableStream({
+          start(controller) {
+            const payload = JSON.stringify({ response: politeMsg }) + "\n";
+            controller.enqueue(new TextEncoder().encode(payload));
+            controller.close();
+          },
+        });
+        return new Response(stream, { headers: { "content-type": "text/event-stream; charset=utf-8" }, });
+      }
     }
 
     // 1) Generate initial answer (non-streaming so we can validate)
@@ -149,6 +159,20 @@ async function handleChatRequest(
 
     // Remove any accidental model ID mentions (e.g., @cf/...) before returning
     const sanitizedFinal = finalText.replace(/@cf\/[\S]+/g, '').replace(/\s{2,}/g, ' ').trim();
+
+    // If sanitizedFinal is empty or still contains weird metadata patterns, obey silent mode
+    const containsModelId = /@cf\/[\S]+/g.test(finalText);
+    const containsHangul = /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/u.test(sanitizedFinal);
+    if (SILENT_ON_FAILURE && (!sanitizedFinal || !containsHangul || containsModelId)) {
+      const stream = new ReadableStream({
+        start(controller) {
+          const payload = JSON.stringify({ response: "" }) + "\n"; // empty response
+          controller.enqueue(new TextEncoder().encode(payload));
+          controller.close();
+        },
+      });
+      return new Response(stream, { headers: { "content-type": "text/event-stream; charset=utf-8" }, });
+    }
 
     // 3) Stream the final validated answer back to the client as newline-delimited JSON
     const stream = new ReadableStream({
