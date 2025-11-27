@@ -15,7 +15,7 @@ const MODEL_ID = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 // Default system prompt (Korean) - make assistant behave as a horoscope-only bot
 const SYSTEM_PROMPT =
-  "당신은 오직 운세 관련 질문(별자리, 오늘의 운세, 내일의 운세, 사주, 별자리 궁합 등)에만 답하는 친절한 한국어 어시스턴트입니다. 사용자가 운세와 관련 없는 질문을 하면 공손히 답변을 거부하고 운세 관련 질문을 하도록 안내하세요. 응답은 간결하고 이해하기 쉽게 한국어로 작성하세요.";
+  "당신은 오직 운세 관련 질문(별자리, 오늘의 운세, 내일의 운세, 사주, 별자리 궁합 등)에만 답하는 친절한 한국어 어시스턴트입니다. 사용자가 운세와 관련 없는 질문을 하면 공손히 답변을 거부하고 운세 관련 질문을 하도록 안내하세요. 응답은 간결하고 이해하기 쉽게 한국어로 작성하세요. 또한, 응답에 절대 내부 모델 ID(@cf/...)나 시스템 메타데이터 같은 구현 세부사항을 포함하지 마세요.";
 
 // Keywords used to determine whether a user message is a horoscope-related query
 const HOROSCOPE_KEYWORDS = [
@@ -147,10 +147,13 @@ async function handleChatRequest(
     // 2) Validate/Rewrite to Korean if needed using additional verifier calls
     const finalText = await ensureKoreanAndGrammar(env, MODEL_ID, initialText);
 
+    // Remove any accidental model ID mentions (e.g., @cf/...) before returning
+    const sanitizedFinal = finalText.replace(/@cf\/[\S]+/g, '').replace(/\s{2,}/g, ' ').trim();
+
     // 3) Stream the final validated answer back to the client as newline-delimited JSON
     const stream = new ReadableStream({
       start(controller) {
-        const payload = JSON.stringify({ response: finalText }) + "\n";
+        const payload = JSON.stringify({ response: sanitizedFinal }) + "\n";
         controller.enqueue(new TextEncoder().encode(payload));
         controller.close();
       },
@@ -191,9 +194,13 @@ async function ensureKoreanAndGrammar(
     // If it contains hangul, attempt to validate with the model (grammar and naturalness)
     const verifierSystem =
       "당신은 한국어 문법 검증자입니다. 다음 텍스트가 완전한 한국어(문법, 어순, 자연스러운 표현)인지 검사하세요. 만약 완벽하면 JSON으로 {\"status\":\"ok\", \"text\": \"원본 텍스트\"} 를 출력하세요. 만약 한국어가 아니거나 문법적 오류가 있거나 어색한 표현이 있다면, JSON으로 {\"status\":\"rewrite\", \"text\": \"수정된 한국어 텍스트\"} 를 출력하세요. 절대 다른 설명을 섞어 출력하지 마세요.";
+    // 추가 규칙: 어떤 경우든 모델 ID(@cf/...)나 "모델 이름" 같은 시스템 메타데이터를 포함하면 안 된다.
+    // 재작성 요구시, 그러한 식별자는 반드시 제거하여 응답에 포함하지 마세요.
+    const verifierSystemAdvised = verifierSystem +
+      " 추가 규칙: 응답에 내부 모델 ID(@cf/...)나 구현 세부사항(모델 이름, 버전 등)을 절대 포함하지 마세요. 재작성시 해당 정보를 제거하십시오.";
 
     const verifierMessages = [
-      { role: "system", content: verifierSystem },
+      { role: "system", content: verifierSystem + " 추가 규칙: 응답에 내부 모델 ID(@cf/...)나 구현 세부사항(모델 이름, 버전 등)을 절대 포함하지 마세요. 재작성시 해당 정보를 제거하십시오." },
       {
         role: "user",
         content: `검증/교정할 텍스트입니다:\n\n${current}`,
