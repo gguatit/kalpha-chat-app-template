@@ -9,10 +9,6 @@ const chatMessages = document.getElementById("chat-messages");
 const userInput = document.getElementById("user-input");
 const sendButton = document.getElementById("send-button");
 const typingIndicator = document.getElementById("typing-indicator");
-const birthdateInput = document.getElementById("birthdate-input");
-const setBirthdateButton = document.getElementById("set-birthdate-button");
-const clearBirthdateButton = document.getElementById("clear-birthdate-button");
-const birthdateDisplay = document.getElementById("birthdate-display");
 
 // Chat state
 let chatHistory = [
@@ -23,8 +19,6 @@ let chatHistory = [
   },
 ];
 let isProcessing = false;
-let userBirthdate = null; // yyyy-mm-dd string
-const DEBUG_LOGS_CLIENT = true;
 
 // Auto-resize textarea as user types
 userInput.addEventListener("input", function () {
@@ -42,54 +36,6 @@ userInput.addEventListener("keydown", function (e) {
 
 // Send button click handler
 sendButton.addEventListener("click", sendMessage);
-
-// Birthdate set/clear handlers
-setBirthdateButton.addEventListener("click", () => {
-  const val = birthdateInput.value;
-  if (!val) return;
-  userBirthdate = val; // format: YYYY-MM-DD
-  const zodiac = getZodiacFromDate(val);
-  birthdateDisplay.textContent = `${val} (${zodiac})`;
-  // Add assistant-like message to confirm
-  addMessageToChat("assistant", `생년월일이 설정되었습니다: ${val} (별자리: ${zodiac})`);
-  // Add to chat history as assistant message for records
-  chatHistory.push({ role: "assistant", content: `생년월일이 설정되었습니다: ${val} (별자리: ${zodiac})` });
-});
-
-clearBirthdateButton.addEventListener("click", () => {
-  userBirthdate = null;
-  birthdateInput.value = "";
-  birthdateDisplay.textContent = "";
-  addMessageToChat("assistant", "생년월일이 삭제되었습니다.");
-  chatHistory.push({ role: "assistant", content: "생년월일이 삭제되었습니다." });
-});
-
-/**
- * Returns western zodiac sign name (Korean) based on YYYY-MM-DD
- */
-function getZodiacFromDate(dateString) {
-  try {
-    if (DEBUG_LOGS_CLIENT) console.debug("[sendMessage] Sending payload", { messages: chatHistory, birthdate: userBirthdate });
-    const date = new Date(dateString);
-    const m = date.getMonth() + 1; // 1..12
-    const d = date.getDate();
-    // Zodiac ranges
-    if ((m === 1 && d >= 20) || (m === 2 && d <= 18)) return "물병자리";
-    if ((m === 2 && d >= 19) || (m === 3 && d <= 20)) return "물고기자리";
-    if ((m === 3 && d >= 21) || (m === 4 && d <= 19)) return "양자리";
-    if ((m === 4 && d >= 20) || (m === 5 && d <= 20)) return "황소자리";
-    if ((m === 5 && d >= 21) || (m === 6 && d <= 21)) return "쌍둥이자리";
-    if ((m === 6 && d >= 22) || (m === 7 && d <= 22)) return "게자리";
-    if ((m === 7 && d >= 23) || (m === 8 && d <= 22)) return "사자자리";
-    if ((m === 8 && d >= 23) || (m === 9 && d <= 22)) return "처녀자리";
-    if ((m === 9 && d >= 23) || (m === 10 && d <= 23)) return "천칭자리";
-    if ((m === 10 && d >= 24) || (m === 11 && d <= 22)) return "전갈자리";
-    if ((m === 11 && d >= 23) || (m === 12 && d <= 21)) return "사수자리";
-    return "염소자리";
-  } catch (e) {
-    return "알 수 없음";
-  }
-}
 
 /**
  * Sends a message to the chat API and processes the response
@@ -113,7 +59,6 @@ async function sendMessage() {
   userInput.style.height = "auto";
 
   // Show typing indicator
-  typingIndicator.textContent = "AI가 응답을 생성하고 검증 중입니다...";
   typingIndicator.classList.add("visible");
 
   // Add message to history
@@ -135,10 +80,9 @@ async function sendMessage() {
       headers: {
         "Content-Type": "application/json",
       },
-        body: JSON.stringify({
-          messages: chatHistory,
-          birthdate: userBirthdate,
-        }),
+      body: JSON.stringify({
+        messages: chatHistory,
+      }),
     });
 
     // Handle errors
@@ -150,7 +94,6 @@ async function sendMessage() {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let responseText = "";
-    let bufferedLine = ""; // buffer partial JSON lines between chunks
 
     while (true) {
       const { done, value } = await reader.read();
@@ -161,57 +104,23 @@ async function sendMessage() {
 
       // Decode chunk
       const chunk = decoder.decode(value, { stream: true });
-      if (DEBUG_LOGS_CLIENT) console.debug("[sendMessage] Received chunk len:", chunk.length, "preview:", chunk.slice(0,200));
-      bufferedLine += chunk;
 
-      // Extract full lines and leave partial remainder in bufferedLine
-      let newlineIndex;
-      while ((newlineIndex = bufferedLine.indexOf("\n")) !== -1) {
-        const line = bufferedLine.slice(0, newlineIndex).trim();
-        bufferedLine = bufferedLine.slice(newlineIndex + 1);
-        if (!line) continue; // skip empty lines
+      // Process SSE format
+      const lines = chunk.split("\n");
+      for (const line of lines) {
         try {
           const jsonData = JSON.parse(line);
-          if (DEBUG_LOGS_CLIENT) console.debug("[sendMessage] Parsed JSON line:", jsonData);
-          if (jsonData && jsonData.response) {
+          if (jsonData.response) {
             // Append new content to existing text
             responseText += jsonData.response;
             assistantMessageEl.querySelector("p").textContent = responseText;
+
             // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
           }
-          // If debug field is present, display it in console and optionally show to user in archive
-          if (jsonData && jsonData.debug && jsonData.debug.reason) {
-            if (DEBUG_LOGS_CLIENT) console.debug('[sendMessage] server debug reason:', jsonData.debug.reason);
-            // Optionally render a quiet note in assistant message for devs (not visible in prod)
-            // We append a faint debug note to the assistant bubble (dev only).
-            const debugNoteEl = document.createElement('small');
-            debugNoteEl.style.display = 'block';
-            debugNoteEl.style.color = '#9CA3AF';
-            debugNoteEl.style.fontSize = '12px';
-            debugNoteEl.textContent = `debug: ${jsonData.debug.reason}`;
-            assistantMessageEl.appendChild(debugNoteEl);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-          }
         } catch (e) {
-          // Ignore parse errors for partial or malformed JSON; keep buffering
-          if (DEBUG_LOGS_CLIENT) console.debug("[sendMessage] Ignored JSON parse error (partial chunk or malformed):", e.message, "line preview:", line.slice(0,200));
+          console.error("Error parsing JSON:", e);
         }
-      }
-    }
-
-    // If something remains in the buffer, try parse final line
-    if (bufferedLine.trim()) {
-      try {
-        const finalJson = JSON.parse(bufferedLine);
-        if (DEBUG_LOGS_CLIENT) console.debug("[sendMessage] finalJson:", finalJson);
-        if (finalJson.response) {
-          responseText += finalJson.response;
-          assistantMessageEl.querySelector("p").textContent = responseText;
-        }
-      } catch (e) {
-        // If final buffer is not valid JSON, it's safer to ignore than throw
-        if (DEBUG_LOGS_CLIENT) console.debug("[sendMessage] Final buffer parse failed, ignoring leftover.", e.message, "preview:", bufferedLine.slice(0,200));
       }
     }
 
@@ -246,20 +155,4 @@ function addMessageToChat(role, content) {
 
   // Scroll to bottom
   chatMessages.scrollTop = chatMessages.scrollHeight;
-
-  // If assistant refuses due to non-horoscope question, show examples
-  if (role === "assistant" && content && content.includes("운세 관련 질문")) {
-    const suggestionsEl = document.createElement("div");
-    suggestionsEl.className = "assistant-suggestions";
-    suggestionsEl.innerHTML = `
-      <p>예시 질문:</p>
-      <ul>
-        <li>"오늘 물병자리 운세 알려줘"</li>
-        <li>"내일 사자자리 운세는 어떨까?"</li>
-        <li>"이번 주 쌍둥이자리 운세 알려줘"</li>
-      </ul>
-    `;
-    chatMessages.appendChild(suggestionsEl);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
 }
