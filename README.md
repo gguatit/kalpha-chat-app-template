@@ -141,6 +141,7 @@ Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
 ### Modifying the System Prompt
 
 The default system prompt can be changed by updating the `SYSTEM_PROMPT` constant in `src/index.ts`.
+By default, this template now enforces a Korean-only assistant that performs grammar and proper-noun verification. If you modify this behavior, make sure to keep the verification and language constraints if required by your use case.
 
 ### Styling
 

@@ -15,7 +15,7 @@ let chatHistory = [
   {
     role: "assistant",
     content:
-      "Hello! I'm an LLM chat app powered by Cloudflare Workers AI. How can I help you today?",
+      "안녕하세요! 저는 한국어 전용 문법·표기·고유명사 검증 도우미입니다. 문장을 입력하시면 문법·맞춤법을 교정하고 고유명사는 가능한 경우 출처와 함께 검증해 드립니다.",
   },
 ];
 let isProcessing = false;
@@ -45,6 +45,21 @@ async function sendMessage() {
 
   // Don't send empty messages
   if (message === "" || isProcessing) return;
+
+  // Warn if message doesn't contain Korean characters
+  if (!/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(message)) {
+    addMessageToChat(
+      "assistant",
+      "알림: 이 챗봇은 한국어 전용입니다. 메시지를 한국어로 입력해 주세요. (자동으로 한국어로 답변을 시도하겠지만, 최상의 결과를 위해 한국어로 입력해 주세요.)",
+    );
+    // reset and exit
+    userInput.value = "";
+    userInput.style.height = "auto";
+    isProcessing = false;
+    userInput.disabled = false;
+    sendButton.disabled = false;
+    return;
+  }
 
   // Disable input while processing
   isProcessing = true;
