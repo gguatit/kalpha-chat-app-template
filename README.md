@@ -145,42 +145,26 @@ Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
 구성 요소(브라우저, 엣지 워커, AI 모델, Durable Objects 등) 간의 데이터 흐름과 각 컴포넌트의 역할을 한눈에 파악할 수 있도록 정리했습니다.
 
 ```mermaid
-graph TB
-   subgraph "Client Layer"
-      A[Browser / Client<br/>index.html, chat.js]
-   end
+flowchart LR
+  Browser[Browser / Client]
+  ASSETS[Static Assets<br/>index.html, CSS, JS]
+  Worker[Cloudflare Worker<br/>src/index.ts]
+  AI[Workers AI<br/>env.AI]
+  DO[Durable Object (optional)]
+  State[KV / R2 (State)]
+  FileAPI[File Upload API (optional)]
 
-   subgraph "Cloudflare Edge"
-      ASSETS[Static Assets<br/>ASSETS binding]
-      WORKER[Cloudflare Worker<br/>src/index.ts]
-   end
+  Browser --> ASSETS
+  Browser --> Worker
+  Worker --> AI
+  Worker --> ASSETS
+  Worker --> DO
+  DO --> State
+  Browser --> FileAPI
+  FileAPI --> Browser
+  Worker -->|optional| Gateway[AI Gateway]
 
-   subgraph "State & Realtime"
-      DO[Durable Object<br/>ChatRoom / WS handler]
-      STATE[State / KV / R2<br/>Messages, sessions]
-   end
-
-   subgraph "AI & Infra"
-      AI[Workers AI<br/>env.AI, MODEL_ID]
-      GATEWAY[AI Gateway (optional)]
-   end
-
-   subgraph "External Services"
-      FILE[File Upload API<br/>static.a85labs.net]
-   end
-
-   A -->|1) GET assets (index.html, CSS, JS)| ASSETS
-   A -->|2) POST /api/chat (messages, DOB, target)| WORKER
-   A -.->|optional: WSS /connect (chatroom)| DO
-   WORKER -->|3) route / handle | DO
-   WORKER -->|4) AI.call(env.AI.run)| AI
-   AI -->|5) SSE stream / response| WORKER
-   WORKER -->|6) streaming response (SSE)| A
-   DO -->|state read/write| STATE
-   DO -.->|broadcast (pub/sub)| A
-   A -.->|file upload| FILE
-   FILE -.->|return URL| A
-   WORKER -->|6b) optionally route via| GATEWAY
+  click Worker "#src/index.ts" "Worker entry"
 ```
 
  
