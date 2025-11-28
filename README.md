@@ -139,6 +139,66 @@ To enable AI Gateway:
 
 Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
 
+## 아키텍처 개요
+
+아래는 이 프로젝트의 전체 아키텍처를 간단히 나타낸 ASCII 다이어그램입니다. (클라이언트 → 워커(Cloudflare Worker) → Workers AI 순으로 요청이 흘러갑니다.)
+
+```
+      [Browser/Client]
+                |
+                | (1) http(s) 요청: /api/chat (POST)
+                |     - `public/chat.js`에서 요청 생성
+                |     - 생년월일, 운세 날짜, 메시지 등 포함
+                V
+      [Cloudflare Worker]
+      (src/index.ts)
+         - 엔드포인트: /api/chat -> handleChatRequest
+         - SYSTEM_PROMPT 강제 주입 (한국어/검증 규칙)
+         - 요청 전처리: 메시지 필터, DOB/Target 추가
+         - AI 모델 호출: env.AI.run(MODEL_ID)
+                |  - returnRawResponse: true (streaming, SSE)
+                |  - 모델: @cf/meta/llama-3.1-8b-instruct-fp8 등
+                V
+      [Workers AI Model]
+         - 텍스트 생성 (운세, 교정, 기타 응답)
+         - (옵션) 리라이터 재요청: 서버에서 '요일/띠/생년월일' 등 금지 패턴을 감지하면
+            추가 요청을 보내어 `오늘 당신의 운세는 <요약> 입니다.` 형식으로 재작성
+                |
+                V
+      [Client receives SSE]
+         - public/chat.js는 stream을 읽어 채팅 UI에 실시간으로 표시
+         - 후처리(클라이언트 레벨 검증 또는 한글 재작성 요청)가 있을 수 있음
+```
+
+### 각 구성요소와 파일 매핑
+- 브라우저(프론트엔드)
+   - `public/index.html`: UI 구성, 컨트롤(생년월일, 운세 날짜, 툴바 등)
+   - `public/chat.js`: 메시지 작성, 전송 로직, 스트리밍 응답 읽기/재작성 요청, 모바일 인터랙션
+   - `public/styles.css`: 레이아웃/반응형 스타일
+
+- 워커(백엔드)
+   - `src/index.ts`: 요청 라우팅, 시스템 프롬프트 강제 주입, env.AI.run 호출, 응답 후처리(금지 패턴 감지 및 재작성 요청)
+   - `worker-configuration.d.ts`: 런타임 타입 정보를 제공 (AI 모델 목록 등)
+
+- AI 및 인프라
+   - Workers AI (`env.AI`): 모델 ID(`MODEL_ID`)로 텍스트 생성, streaming SSE를 통한 응답
+   - Static Assets (`env.ASSETS`): `public/` 정적 파일 제공
+
+### 데이터 흐름 (상세)
+- 사용자(브라우저)가 메시지를 입력하고 '전송'을 누르면, `public/chat.js`는 `chatHistory`와 함께 `/api/chat`으로 POST 요청을 보냅니다.
+- `src/index.ts`는 요청을 받으면 `SYSTEM_PROMPT`를 항상 최상단에 추가하여 시스템 규칙(한국어 전용, 검증 규칙 등)을 강제합니다.
+- Worker는 `env.AI.run(MODEL_ID, { messages })`로 모델에 요청을 보냅니다 (SSE / returnRawResponse: true).
+- 모델이 응답을 스트리밍하면 클라이언트가 이를 수신하여 UI에 실시간으로 렌더링합니다.
+- 워커에서 금지 패턴(요일/띠/생년월일 등)을 찾으면, 동일 모델(또는 스페셜 모델)로 재작성 요청을 보냅니다. 재작성 결과는 클라이언트로 반환됩니다.
+
+### 고려 사항 및 확장 포인트
+- 재작성 비용: 재작성 요청이 발생하면 모델 호출이 추가로 발생하므로 비용 증가 가능 (추적/캐싱/저비용 모델 사용 고려).
+- 모델 변경: `MODEL_ID`를 바꾸면 타입 선언(`worker-configuration.d.ts`)과 권한(Cloudflare 대시보드 모델 액세스)이 영향을 받을 수 있음.
+- 서버 측 검증: `src/index.ts`에서 사용자 입력(생년월일/운세 날짜) 유효성 검증을 강화하여 잘못된 입력을 사전에 차단할 수 있습니다.
+- 외부 검증 서비스: 띠(중국/한국, 음력/태양력 변환)와 같은 민감한 정보는 외부 검증 서비스(또는 정확한 라이브러리)로 보완 가능합니다.
+
+이제 아키텍처 설명이 README에 추가되었습니다. 더 상세한 시각화(SVG, PlantUML, Mermaid)나 다이어그램 파일을 추가하길 원하시면 알려주세요. 특히 배포 파이프라인(예: GitHub Actions → wrangler deploy)과 AI Gateway/캐시 계층을 포함하는 확장 다이어그램도 제공 가능합니다.
+
 ### Modifying the System Prompt
 
 The default system prompt can be changed by updating the `SYSTEM_PROMPT` constant in `src/index.ts`.
