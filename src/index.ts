@@ -11,7 +11,9 @@ import { Env, ChatMessage } from "./types";
 
 // Model ID for Workers AI model
 // https://developers.cloudflare.com/workers-ai/models/
-const MODEL_ID = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// Switched from llama-3.3 (70B) to llama-3.1 (8B) for lower cost and faster response.
+// Use the typed FP8 variant (without '-fast').
+const MODEL_ID = "@cf/meta/llama-3.1-8b-instruct-fp8";
 
 // System prompt enforced for every conversation
 const SYSTEM_PROMPT = `당신은 한국어만 사용해야 하는 문법·표기·사실관계(고유명사 포함) 교정·검증 도우미입니다.
