@@ -244,3 +244,34 @@ footer {
   .chat-container { max-height: calc(100vh - 160px); }
   .chat-messages { padding-bottom: 120px; }
 }
+
+/* Mobile toolbar styles */
+@media (max-width: 768px) {
+  .mobile-toolbar {
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+    align-items: center;
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 64px; /* sit above the message-input */
+    z-index: 25;
+    background: rgba(255,255,255,0.98);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    border: 1px solid var(--border-color);
+  }
+  .mobile-toolbar-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 64px;
+  }
+  .mobile-toolbar-btn:active { transform: translateY(1px); }
+}

@@ -161,7 +161,9 @@ UI에서 제공하는 '운세 요청' 체크박스를 활성화하고 '운세 �
 
 자동 실행 동작: 사용자가 이미 '생년월일'을 설정한 상태에서 채팅에 '운세', '오늘 운세', '운세 봐줘' 등 운세 관련 문구를 입력하면, 앱은 수동 확인 없이 자동으로 운세 요청을 처리합니다. (생년월일이 없는 상황에서는 먼저 생년월일을 설정하라는 안내가 표시됩니다.)
 
-모바일 지원: 대부분의 최신 모바일 브라우저는 `input[type="date"]`를 지원하므로 UI는 가능한 경우 네이티브 날짜 피커를 사용합니다. (구형 브라우저에서만 년/월/일 드롭다운 `select`가 표시됩니다.) 또한 메시지 입력은 화면 하단에 고정되어 키보드가 나타날 때도 접근하기 쉽도록 개선되었습니다.
+Mobile support: most modern mobile browsers support `input[type="date"]`; the UI prefers native date pickers on mobile, provides a fallback `select` UI only for browsers without native `date` support, and the header instructions are collapsed on smaller screens to reduce clutter. The message input is sticky and the send button is touch-friendly.
+
+Mobile-only toolbar: We added a small set of quick-action buttons for mobile users above the input field: `생년월일` (date picker focus / selects toggle), `운세` (toggle horoscope request), and `입력` (focus message input). This toolbar only appears on small screens and is designed to improve one-hand usability.
 
 추가 사용 팁:
 

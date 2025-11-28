@@ -186,6 +186,44 @@ if (chatMessages) {
   });
 }
 
+// Mobile toolbar handlers
+const toolbarDob = document.getElementById('toolbar-dob');
+const toolbarHoroscope = document.getElementById('toolbar-horoscope');
+const toolbarFocus = document.getElementById('toolbar-focus');
+
+if (toolbarDob) {
+  toolbarDob.addEventListener('click', () => {
+    // If native date input is shown, focus it; otherwise toggle selects visibility
+    if (birthdateInput && birthdateInput.style.display !== 'none') {
+      try { birthdateInput.focus(); } catch (e) {}
+    } else if (birthdateSelects) {
+      // toggle select visibility quickly
+      birthdateSelects.style.display = birthdateSelects.style.display === 'none' ? 'flex' : 'none';
+      // Scroll to bottom so the selects are visible
+      ensureScrollToBottomLater();
+    }
+  });
+}
+
+if (toolbarHoroscope) {
+  toolbarHoroscope.addEventListener('click', () => {
+    if (!horoscopeCheckbox) return;
+    horoscopeCheckbox.checked = !horoscopeCheckbox.checked;
+    addMessageToChat('assistant', `운세 요청이 ${horoscopeCheckbox.checked ? '활성화' : '비활성화'}되었습니다.`);
+    // If enabling and birthdate is set, optionally auto-trigger (small hint only)
+    if (horoscopeCheckbox.checked && userBirthdate) {
+      addMessageToChat('assistant', '생년월일이 설정되어 있어 자동으로 운세 요청을 실행합니다.');
+    }
+  });
+}
+
+if (toolbarFocus) {
+  toolbarFocus.addEventListener('click', () => {
+    try { if (userInput) userInput.focus(); } catch (e) {}
+    ensureScrollToBottomLater();
+  });
+}
+
 // Initialize target date to today
 function todayStr() {
   const d = new Date();
