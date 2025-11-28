@@ -403,6 +403,10 @@ async function sendMessage() {
       throw new Error("Failed to get response");
     }
 
+    // sanitize flag
+    let sanitizedOnce = false;
+    const containsForbiddenScript = (text) => /[A-Za-z\u0400-\u04FF\u3040-\u30FF\u4E00-\u9FFF]/.test(text);
+
     // Process streaming response
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -437,8 +441,63 @@ async function sendMessage() {
       }
     }
 
-    // Add completed response to chat history
-    chatHistory.push({ role: "assistant", content: responseText });
+    // If response contains forbidden scripts (e.g., 한자/일본어/라틴/키릴), request a rewrite once
+    if (containsForbiddenScript(responseText) && !sanitizedOnce) {
+      sanitizedOnce = true;
+      // Briefly notify user that we are auto-correcting
+      addMessageToChat("assistant", "응답에 외래 문자 또는 섞인 문자가 포함되어 있어 자동으로 한글로 재작성 요청합니다...");
+
+      // Add a user instruction to re-write the assistant content in Korean only
+      const rewriteInstruction = {
+        role: "user",
+        content: `다음 텍스트를 한글(한글+숫자+기호)만 사용하여 재작성해 주세요. 원문: ${responseText}`,
+      };
+      // Push rewrite instruction to history and request a corrected response
+      chatHistory.push(rewriteInstruction);
+
+      // Fetch corrected response (synchronous: not streaming to keep it simple)
+      try {
+        const correctedResp = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: chatHistory }),
+        });
+        if (correctedResp.ok) {
+          const correctedText = await correctedResp.text();
+          // correctedResp returns streaming SSE lines, but for simplicity, if backend returns streaming SSE, it may not be parsed here.
+          // If it's raw text, parse JSON or fallback to plain text.
+          // We'll try to extract any JSON lines with 'response' fields.
+          let corrected = "";
+          try {
+            const parts = correctedText.split("\n");
+            for (const p of parts) {
+              try {
+                const j = JSON.parse(p);
+                if (j.response) corrected += j.response;
+              } catch (e) {
+                // ignore
+              }
+            }
+          } catch (e) {
+            corrected = correctedText;
+          }
+          if (!corrected) corrected = responseText; // fallback
+          // Replace assistant message with corrected
+          assistantMessageEl.querySelector("p").textContent = corrected;
+          // Add corrected message to chat history
+          chatHistory.push({ role: "assistant", content: corrected });
+        } else {
+          // could not fetch corrected response – keep original
+          chatHistory.push({ role: "assistant", content: responseText });
+        }
+      } catch (e) {
+        console.error("Error fetching corrected response:", e);
+        chatHistory.push({ role: "assistant", content: responseText });
+      }
+    } else {
+      // Add completed response to chat history
+      chatHistory.push({ role: "assistant", content: responseText });
+    }
   } catch (error) {
     console.error("Error:", error);
     addMessageToChat(
