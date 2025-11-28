@@ -56,7 +56,18 @@ This template demonstrates how to build an AI-powered chat interface using Cloud
 
 ### Development
 
-Start a local development server:
+Frontend Development (React + Vite):
+
+Run the Vite dev server for the React frontend (recommended in a second terminal):
+
+```bash
+npm install
+npm run dev:ui
+```
+
+Backend Development (Cloudflare Worker):
+
+In another terminal, run the Worker in dev mode:
 
 ```bash
 npm run dev
@@ -68,10 +79,10 @@ Note: Using Workers AI accesses your Cloudflare account even during local develo
 
 ### Deployment
 
-Deploy to Cloudflare Workers:
+Build UI and Deploy:
 
 ```bash
-npm run deploy
+npm run build
 ```
 
 ### Monitor
@@ -109,14 +120,15 @@ The backend is built with Cloudflare Workers and uses the Workers AI platform to
 2. **Streaming**: Uses Server-Sent Events (SSE) for real-time streaming of AI responses
 3. **Workers AI Binding**: Connects to Cloudflare's AI service via the Workers AI binding
 
-### Frontend
+### Frontend (React)
 
-The frontend is a simple HTML/CSS/JavaScript application that:
+The frontend is now a React application (Vite + TypeScript). The source lives under `frontend/` and builds into `public/`.
 
-1. Presents a chat interface
-2. Sends user messages to the API
-3. Processes streaming responses in real-time
-4. Maintains chat history on the client side
+The React frontend:
+- Presents a chat interface as React components
+- Sends user messages to the `/api/chat` endpoint
+- Processes streaming responses (SSE) or fallback responses
+- Maintains chat history in memory on the client side
 
 ## Customization
 

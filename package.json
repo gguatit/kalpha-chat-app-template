@@ -18,6 +18,8 @@
     "publish": true
   },
   "devDependencies": {
+    "vite": "^7.1.7",
+    "@vitejs/plugin-react-swc": "^4.0.0",
     "@cloudflare/vitest-pool-workers": "0.8.44",
     "@cloudflare/workers-types": "^4.20250425.0",
     "@types/node": "24.0.4",
@@ -25,7 +27,15 @@
     "vitest": "3.2.4",
     "wrangler": "4.21.x"
   },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "scripts": {
+    "dev:ui": "vite --config frontend/vite.config.ts",
+    "build:ui": "vite build --config frontend/vite.config.ts",
+    "preview:ui": "vite preview --config frontend/vite.config.ts",
+    "build": "npm run build:ui && wrangler deploy",
     "cf-typegen": "wrangler types",
     "check": "tsc --noEmit && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",

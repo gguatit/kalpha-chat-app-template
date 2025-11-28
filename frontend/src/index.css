@@ -1,0 +1,4 @@
+@import '../../public/styles.css';
+
+/* Add any React-specific overrides here */
+#root { min-height: 100vh; }
