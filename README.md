@@ -139,38 +139,72 @@ To enable AI Gateway:
 
 Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
 
-## 아키텍처 개요
+## 아키텍처
 
-아래는 이 프로젝트의 전체 아키텍처를 간단히 나타낸 ASCII 다이어그램입니다. (클라이언트 → 워커(Cloudflare Worker) → Workers AI 순으로 요청이 흘러갑니다.)
+아래 Mermaid 다이어그램은 이 레포지토리의 아키텍처를 좀 더 정성들여 시각화해 놓은 것입니다.
+구성 요소(브라우저, 엣지 워커, AI 모델, Durable Objects 등) 간의 데이터 흐름과 각 컴포넌트의 역할을 한눈에 파악할 수 있도록 정리했습니다.
 
+```mermaid
+graph TB
+   subgraph "Client Layer"
+      A[Browser / Client<br/>index.html, chat.js]
+   end
+
+   subgraph "Cloudflare Edge"
+      ASSETS[Static Assets<br/>ASSETS binding]
+      WORKER[Cloudflare Worker<br/>src/index.ts]
+   end
+
+   subgraph "State & Realtime"
+      DO[Durable Object<br/>ChatRoom / WS handler]
+      STATE[State / KV / R2<br/>Messages, sessions]
+   end
+
+   subgraph "AI & Infra"
+      AI[Workers AI<br/>env.AI, MODEL_ID]
+      GATEWAY[AI Gateway (optional)]
+   end
+
+   subgraph "External Services"
+      FILE[File Upload API<br/>static.a85labs.net]
+   end
+
+   A -->|1) GET assets (index.html, CSS, JS)| ASSETS
+   A -->|2) POST /api/chat (messages, DOB, target)| WORKER
+   A -.->|optional: WSS /connect (chatroom)| DO
+   WORKER -->|3) route / handle | DO
+   WORKER -->|4) AI.call(env.AI.run)| AI
+   AI -->|5) SSE stream / response| WORKER
+   WORKER -->|6) streaming response (SSE)| A
+   DO -->|state read/write| STATE
+   DO -.->|broadcast (pub/sub)| A
+   A -.->|file upload| FILE
+   FILE -.->|return URL| A
+   WORKER -->|6b) optionally route via| GATEWAY
 ```
-      [Browser/Client]
-                |
-                | (1) http(s) 요청: /api/chat (POST)
-                |     - `public/chat.js`에서 요청 생성
-                |     - 생년월일, 운세 날짜, 메시지 등 포함
-                V
-      [Cloudflare Worker]
-      (src/index.ts)
-         - 엔드포인트: /api/chat -> handleChatRequest
-         - SYSTEM_PROMPT 강제 주입 (한국어/검증 규칙)
-         - 요청 전처리: 메시지 필터, DOB/Target 추가
-         - AI 모델 호출: env.AI.run(MODEL_ID)
-                |  - returnRawResponse: true (streaming, SSE)
-                |  - 모델: @cf/meta/llama-3.1-8b-instruct-fp8 등
-                V
-      [Workers AI Model]
-         - 텍스트 생성 (운세, 교정, 기타 응답)
-         - (옵션) 리라이터 재요청: 서버에서 '요일/띠/생년월일' 등 금지 패턴을 감지하면
-            추가 요청을 보내어 `오늘 당신의 운세는 <요약> 입니다.` 형식으로 재작성
-                |
-                V
-      [Client receives SSE]
-         - public/chat.js는 stream을 읽어 채팅 UI에 실시간으로 표시
-         - 후처리(클라이언트 레벨 검증 또는 한글 재작성 요청)가 있을 수 있음
-```
 
+ 
+### 다이어그램 설명
+
+- Browser / Client: `public/index.html`, `public/chat.js`, `public/styles.css`로 구성된 프론트엔드. 사용자는 메시지를 작성하고 `POST /api/chat` API를 호출합니다. (또는 WebSocket/Do에 연결할 수 있음)
+- Static Assets (ASSETS binding): 정적 파일(HTML/CSS/JS)을 제공합니다.
+- Cloudflare Worker (`src/index.ts`): 엔드포인트 `/api/chat`를 처리, `SYSTEM_PROMPT`를 주입하고 메시지 기록·전처리 후 `env.AI.run`을 호출합니다. 응답을 SSE로 스트리밍하거나 재작성 과정을 수행합니다.
+- Workers AI: 모델 인퍼런스(예: `@cf/meta/llama-3.1-8b-instruct-fp8`)를 통해 언어 응답을 생성합니다. 필요 시 AI Gateway를 통해 라우팅/캐시/모니터링을 적용할 수 있습니다.
+- Durable Objects (선택적): 채팅룸/WebSocket을 처리하거나 세션·메시지 브로드캐스트를 담당합니다. 이 레포지토리는 기본적으로 SSE 기반이므로 DO는 아키텍처 확장용입니다.
+- State (KV / R2): 메시지, 세션, 업로드된 파일 메타데이터 등을 저장하는 데 사용됩니다.
+- External File Upload API: 파일 업로드를 외부 서비스(예: `static.a85labs.net`)로 위임하고, 업로드된 파일의 URL을 클라이언트에 반환해 표시합니다.
+
+ 
+### 구현 vs 개념
+
+- 이 레포지토리(현재 상태)는 핵심적으로 `Cloudflare Worker + Workers AI + Static ASSETS`를 사용하여 SSE 기반 대화(채팅)를 구현합니다.
+- Durable Objects, WebSocket, R2나 외부 업로드는 '설계상 가능한 확장'으로 포함해 설명해 두었습니다. 실제 구현 여부는 코드를 확인하세요(`src/`와 `public/` 폴더).
+
+필요하시면 Mermaid 다이어그램을 더 확장(SVG/PNG 생성, CI 파이프라인, 로깅/모니터링 계층 등)해서 README에 포함하겠습니다.
+
+ 
 ### 각 구성요소와 파일 매핑
+
 - 브라우저(프론트엔드)
    - `public/index.html`: UI 구성, 컨트롤(생년월일, 운세 날짜, 툴바 등)
    - `public/chat.js`: 메시지 작성, 전송 로직, 스트리밍 응답 읽기/재작성 요청, 모바일 인터랙션
@@ -185,6 +219,7 @@ Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
    - Static Assets (`env.ASSETS`): `public/` 정적 파일 제공
 
 ### 데이터 흐름 (상세)
+
 - 사용자(브라우저)가 메시지를 입력하고 '전송'을 누르면, `public/chat.js`는 `chatHistory`와 함께 `/api/chat`으로 POST 요청을 보냅니다.
 - `src/index.ts`는 요청을 받으면 `SYSTEM_PROMPT`를 항상 최상단에 추가하여 시스템 규칙(한국어 전용, 검증 규칙 등)을 강제합니다.
 - Worker는 `env.AI.run(MODEL_ID, { messages })`로 모델에 요청을 보냅니다 (SSE / returnRawResponse: true).
@@ -192,6 +227,7 @@ Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
 - 워커에서 금지 패턴(요일/띠/생년월일 등)을 찾으면, 동일 모델(또는 스페셜 모델)로 재작성 요청을 보냅니다. 재작성 결과는 클라이언트로 반환됩니다.
 
 ### 고려 사항 및 확장 포인트
+
 - 재작성 비용: 재작성 요청이 발생하면 모델 호출이 추가로 발생하므로 비용 증가 가능 (추적/캐싱/저비용 모델 사용 고려).
 - 모델 변경: `MODEL_ID`를 바꾸면 타입 선언(`worker-configuration.d.ts`)과 권한(Cloudflare 대시보드 모델 액세스)이 영향을 받을 수 있음.
 - 서버 측 검증: `src/index.ts`에서 사용자 입력(생년월일/운세 날짜) 유효성 검증을 강화하여 잘못된 입력을 사전에 차단할 수 있습니다.
