@@ -19,14 +19,14 @@ const birthdateSelects = document.getElementById("birthdate-selects");
 const birthdateYearSelect = document.getElementById("birthdate-year");
 const birthdateMonthSelect = document.getElementById("birthdate-month");
 const birthdateDaySelect = document.getElementById("birthdate-day");
-const todayBirthdateButton = document.getElementById("today-birthdate-button");
+// '오늘로 설정' 관련 코드 제거됨
 
 // Chat state
 let chatHistory = [
   {
     role: "assistant",
     content:
-      "안녕하세요! 저는 한국어 전용 문법·표기·고유명사 검증 도우미입니다. 문장을 입력하시면 문법·맞춤법을 교정하고 고유명사는 가능한 경우 출처와 함께 검증해 드립니다.",
+      "안녕하세요! 저는 생년월일을 기반으로 운세를 알려드리는 한국어 전용 도우미입니다. 생년월일을 입력하거나 UI에서 설정하시면 띠 기반의 오늘의 운세 및 간단한 추천 행동을 한국어로 안내해 드립니다.",
   },
 ];
 let userBirthdate = null; // YYYY-MM-DD
@@ -212,37 +212,7 @@ if (clearBirthdateButton) {
   });
 }
 
-// Today quick pick
-if (todayBirthdateButton) {
-  todayBirthdateButton.addEventListener("click", () => {
-    const dt = new Date();
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, "0");
-    const d = String(dt.getDate()).padStart(2, "0");
-    const val = `${y}-${m}-${d}`;
-    userBirthdate = val;
-    if (birthdateInput && birthdateInput.type === "date") {
-      birthdateInput.value = val;
-    }
-    if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
-      birthdateYearSelect.value = String(y);
-      birthdateMonthSelect.value = String(dt.getMonth() + 1);
-      updateDaysSelect();
-      birthdateDaySelect.value = String(dt.getDate());
-      if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${val}`;
-    }
-    // Ensure profile message is present/updated
-    const profileIndex = chatHistory.findIndex((m) => m.content && m.content.startsWith("[생년월일]"));
-    const profileMsg = { role: "user", content: `[생년월일] ${val}` };
-    if (profileIndex === -1) {
-      chatHistory.splice(1, 0, profileMsg);
-      addMessageToChat("assistant", `생년월일이 저장되었습니다: ${val}`);
-    } else {
-      chatHistory[profileIndex] = profileMsg;
-      addMessageToChat("assistant", `생년월일이 업데이트되었습니다: ${val}`);
-    }
-  });
-}
+// 관련 코드 삭제 완료
 
 /**
  * Sends a message to the chat API and processes the response

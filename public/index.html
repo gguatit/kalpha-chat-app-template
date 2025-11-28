@@ -28,7 +28,7 @@
       <div id="chat-messages" class="chat-messages">
         <div class="message assistant-message">
           <p>
-            안녕하세요! 저는 한국어 전용 문법·표기·고유명사 검증 도우미입니다. 문장을 입력하시면 문법·맞춤법을 교정하고 고유명사는 가능한 경우 출처와 함께 검증해 드립니다.
+            안녕하세요! 저는 생년월일을 기반으로 운세를 알려드리는 한국어 전용 도우미입니다. 생년월일을 입력하거나 UI에서 설정하시면 띠 기반의 오늘의 운세 및 간단한 추천 행동을 한국어로 안내해 드립니다.
           </p>
         </div>
       </div>
@@ -57,7 +57,7 @@
             </div>
             <button id="set-birthdate-button" style="padding:0.3rem 0.6rem; background:#4f46e5; color:white; border:none; border-radius:4px; cursor:pointer;">설정</button>
             <button id="clear-birthdate-button" style="padding:0.3rem 0.6rem; background:#9ca3af; color:white; border:none; border-radius:4px; cursor:pointer;">지우기</button>
-            <button id="today-birthdate-button" style="padding:0.3rem 0.6rem; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">오늘로 설정</button>
+<!-- '오늘로 설정' 버튼은 제거되었습니다 -->
             <div id="birthdate-display" style="margin-left:auto; font-size:0.9rem; color:var(--text-light);"></div>
           </div>
 
@@ -67,8 +67,7 @@
             <input id="horoscope-checkbox" type="checkbox" />
             <label for="horoscope-checkbox" style="font-size:0.85rem; color:var(--text-light);">운세 요청</label>
             <select id="horoscope-type" style="padding:0.3rem; border:1px solid var(--border-color); border-radius:4px;">
-              <option value="mixed">혼합(별자리 + 띠)</option>
-              <option value="zodiac">서양 별자리</option>
+              <option value="mixed">혼합(띠 기반 + 요약)</option>
               <option value="chinese">한국/중국 띠</option>
             </select>
             <div style="margin-left:auto; font-size:0.85rem; color:var(--text-light);">운세 요청 시 <strong>생년월일</strong>이 필요합니다.</div>
