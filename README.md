@@ -143,6 +143,16 @@ Learn more about [AI Gateway](https://developers.cloudflare.com/ai-gateway/).
 The default system prompt can be changed by updating the `SYSTEM_PROMPT` constant in `src/index.ts`.
 By default, this template now enforces a Korean-only assistant that performs grammar and proper-noun verification. If you modify this behavior, make sure to keep the verification and language constraints if required by your use case.
 
+### 운세 기능 안내
+이 템플릿에는 기본적으로 운세 기능이 추가되어 있습니다. UI에서 생년월일을 입력하거나 채팅에 `[생년월일] YYYY-MM-DD` 형식으로 생년월일을 제공하면, AI가 해당 생년월일을 기반으로 다음 내용을 한국어로 제공합니다:
+
+- 서양 별자리(예: 물병자리, 사수자리 등) 및 간단한 성격 설명
+- 한국/중국 띠(연도 기반)
+- 오늘의 운세(요약) 및 추천 행동
+- 확신도(높음/보통/낮음) 및 참고/출처(가능한 경우)
+
+예제: UI에서 생년월일을 `1990-01-01` 로 설정한 후 `오늘 운세 알려줘` 라고 입력하면, AI가 해당 생년월일을 기반으로 오늘의 운세를 제공합니다.
+
 ### Styling
 
 The UI styling is contained in the `<style>` section of `public/index.html`. You can modify the CSS variables at the top to quickly change the color scheme.

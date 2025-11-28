@@ -9,6 +9,10 @@ const chatMessages = document.getElementById("chat-messages");
 const userInput = document.getElementById("user-input");
 const sendButton = document.getElementById("send-button");
 const typingIndicator = document.getElementById("typing-indicator");
+const birthdateInput = document.getElementById("birthdate-input");
+const setBirthdateButton = document.getElementById("set-birthdate-button");
+const clearBirthdateButton = document.getElementById("clear-birthdate-button");
+const birthdateDisplay = document.getElementById("birthdate-display");
 
 // Chat state
 let chatHistory = [
@@ -18,6 +22,7 @@ let chatHistory = [
       "안녕하세요! 저는 한국어 전용 문법·표기·고유명사 검증 도우미입니다. 문장을 입력하시면 문법·맞춤법을 교정하고 고유명사는 가능한 경우 출처와 함께 검증해 드립니다.",
   },
 ];
+let userBirthdate = null; // YYYY-MM-DD
 let isProcessing = false;
 
 // Auto-resize textarea as user types
@@ -36,6 +41,43 @@ userInput.addEventListener("keydown", function (e) {
 
 // Send button click handler
 sendButton.addEventListener("click", sendMessage);
+
+// Birthdate buttons
+if (setBirthdateButton && birthdateInput) {
+  setBirthdateButton.addEventListener("click", () => {
+    const val = birthdateInput.value;
+    if (!val) return;
+    userBirthdate = val; // YYYY-MM-DD
+
+    // Update display
+    if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${val}`;
+
+    // Add or replace profile entry in chat history
+    const profileIndex = chatHistory.findIndex((m) => m.content && m.content.startsWith("[생년월일]"));
+    const profileMsg = { role: "user", content: `[생년월일] ${val}` };
+    if (profileIndex === -1) {
+      // insert after initial assistant message
+      chatHistory.splice(1, 0, profileMsg);
+      addMessageToChat("assistant", `생년월일이 저장되었습니다: ${val}`);
+    } else {
+      chatHistory[profileIndex] = profileMsg;
+      addMessageToChat("assistant", `생년월일이 업데이트되었습니다: ${val}`);
+    }
+  });
+}
+
+if (clearBirthdateButton) {
+  clearBirthdateButton.addEventListener("click", () => {
+    userBirthdate = null;
+    if (birthdateDisplay) birthdateDisplay.textContent = "";
+    // Remove profile from chat history
+    const profileIndex = chatHistory.findIndex((m) => m.content && m.content.startsWith("[생년월일]"));
+    if (profileIndex !== -1) {
+      chatHistory.splice(profileIndex, 1);
+    }
+    addMessageToChat("assistant", `생년월일이 삭제되었습니다.`);
+  });
+}
 
 /**
  * Sends a message to the chat API and processes the response
@@ -96,7 +138,7 @@ async function sendMessage() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messages: chatHistory,
+          messages: chatHistory,
       }),
     });
 
