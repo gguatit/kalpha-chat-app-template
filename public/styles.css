@@ -149,3 +149,30 @@ footer {
     font-size: 0.85rem;
   }
 }
+
+/* Desktop birthdate control styles */
+@media (min-width: 481px) {
+  #birthdate-controls button {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  #birthdate-controls button:hover {
+    background: #f3f4f6;
+  }
+  #birthdate-controls {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* Hide inline controls on small screens, they are desktop-only */
+@media (max-width: 480px) {
+  #birthdate-controls {
+    display: none !important;
+  }
+}

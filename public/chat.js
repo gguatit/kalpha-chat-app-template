@@ -19,6 +19,8 @@ const birthdateSelects = document.getElementById("birthdate-selects");
 const birthdateYearSelect = document.getElementById("birthdate-year");
 const birthdateMonthSelect = document.getElementById("birthdate-month");
 const birthdateDaySelect = document.getElementById("birthdate-day");
+const birthdateIncButton = document.getElementById("birthdate-inc");
+const birthdateDecButton = document.getElementById("birthdate-dec");
 // '오늘로 설정' 관련 코드 제거됨
 
 // Chat state
@@ -99,6 +101,37 @@ function updatePreviewFromSelects() {
   }
 }
 
+// add or subtract days/months/years from a date string YYYY-MM-DD
+function adjustDateString(dateStr, { days = 0, months = 0, years = 0 }) {
+  let d;
+  if (!dateStr) d = new Date(); else d = new Date(dateStr + "T00:00:00");
+  if (years !== 0) d.setFullYear(d.getFullYear() + years);
+  if (months !== 0) d.setMonth(d.getMonth() + months);
+  if (days !== 0) d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function addDaysToInput(days) {
+  if (!birthdateInput) return;
+  const current = birthdateInput.value || userBirthdate || null;
+  const next = adjustDateString(current, { days });
+  birthdateInput.value = next;
+  if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${next}`;
+  // do not auto-push to chatHistory; user should click '설정' to store
+  // Sync selects in case they are visible
+  if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
+    const parts = next.split("-");
+    birthdateYearSelect.value = parts[0];
+    birthdateMonthSelect.value = String(parseInt(parts[1], 10));
+    updateDaysSelect();
+    birthdateDaySelect.value = String(parseInt(parts[2], 10));
+    updatePreviewFromSelects();
+  }
+}
+
 function initBirthdateUI() {
   const supported = isDateInputSupported();
   const isSmallScreen = window && window.matchMedia && window.matchMedia('(max-width: 480px)').matches;
@@ -128,6 +161,16 @@ if (birthdateInput) {
   birthdateInput.addEventListener("change", () => {
     if (birthdateInput.value && birthdateDisplay) {
       birthdateDisplay.textContent = `생년월일: ${birthdateInput.value}`;
+    }
+    // Also update selects if present
+    if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
+      const parts = (birthdateInput && birthdateInput.value) ? birthdateInput.value.split("-") : [];
+      if (parts.length === 3) {
+        birthdateYearSelect.value = parts[0];
+        birthdateMonthSelect.value = String(parseInt(parts[1], 10));
+        updateDaysSelect();
+        birthdateDaySelect.value = String(parseInt(parts[2], 10));
+      }
     }
   });
 }
@@ -209,6 +252,35 @@ if (clearBirthdateButton) {
       chatHistory.splice(profileIndex, 1);
     }
     addMessageToChat("assistant", `생년월일이 삭제되었습니다.`);
+  });
+}
+
+// Desktop increment / decrement buttons behavior
+if (birthdateIncButton) {
+  birthdateIncButton.addEventListener("click", () => {
+    addDaysToInput(1);
+  });
+}
+if (birthdateDecButton) {
+  birthdateDecButton.addEventListener("click", () => {
+    addDaysToInput(-1);
+  });
+}
+
+// Keyboard shortcuts when focusing date input
+if (birthdateInput) {
+  birthdateInput.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (e.shiftKey) addDaysToInput(30); // shift+up -> next month approx
+      else if (e.ctrlKey || e.metaKey) addDaysToInput(365); // ctrl+up -> next year
+      else addDaysToInput(1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (e.shiftKey) addDaysToInput(-30);
+      else if (e.ctrlKey || e.metaKey) addDaysToInput(-365);
+      else addDaysToInput(-1);
+    }
   });
 }
 

@@ -42,7 +42,11 @@
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <label for="birthdate-input" style="font-size:0.85rem; color:var(--text-light);">생년월일:</label>
             <!-- Native date input (desktop & modern mobile browsers) -->
-            <input id="birthdate-input" type="date" autocomplete="bday" inputmode="numeric" style="padding:0.4rem; border:1px solid var(--border-color); border-radius:4px; min-width:140px;" />
+            <div id="birthdate-controls" style="display:inline-flex; align-items:center; gap:6px;">
+              <button id="birthdate-dec" aria-label="하루 감소" title="하루 감소" style="padding:0.25rem 0.5rem; border-radius:4px; border:1px solid var(--border-color); background:#ffffff; cursor:pointer;">−</button>
+              <input id="birthdate-input" type="date" autocomplete="bday" inputmode="numeric" style="padding:0.4rem; border:1px solid var(--border-color); border-radius:4px; min-width:140px;" />
+              <button id="birthdate-inc" aria-label="하루 증가" title="하루 증가" style="padding:0.25rem 0.5rem; border-radius:4px; border:1px solid var(--border-color); background:#ffffff; cursor:pointer;">＋</button>
+            </div>
             <!-- Fallback selects for older mobile browsers -->
             <div id="birthdate-selects" style="display:none; gap:6px; align-items:center;">
               <select id="birthdate-year" style="padding:0.3rem; border:1px solid var(--border-color); border-radius:4px;">
