@@ -669,6 +669,10 @@ footer {
 }
 
 @media (max-width: 640px) {
+  .input-row {
+    display: none;
+  }
+  
   .zodiac-info {
     font-size: 0.75rem;
     padding: 4px 8px;
