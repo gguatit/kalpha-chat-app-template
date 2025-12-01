@@ -71,6 +71,7 @@ graph TB
 
 - **Llama 3.1 8B Instruct FP8** 모델 기반 운세 생성
 - 생년월일과 목표 날짜를 기반으로 한 맞춤형 분석
+- **12별자리(서양 점성술)** 자동 계산 및 운세 특성 반영
 - 긍정적/부정적 조언의 균형잡힌 제공 (70% 긍정, 30% 주의)
 - 환각(hallucination) 방지를 위한 시스템 프롬프트 최적화
 - 한국어 전용 응답 및 문법 교정
@@ -93,6 +94,7 @@ graph TB
 - 모바일 최적화 UI (숫자 키패드 입력 지원)
 - 날짜 증감 버튼으로 편리한 날짜 조정
 - '오늘' 버튼으로 빠른 날짜 초기화
+- **12별자리 자동 표시** (생년월일 설정 시 채팅창에 표시)
 - LocalStorage 기반 채팅 기록 및 설정 유지
 - 비밀번호 표시/숨김 토글
 
@@ -325,11 +327,18 @@ Today-s-horoscope/
 - Workers AI 통합 및 스트리밍 응답
 - D1 데이터베이스 쿼리
 
+**`src/types.ts`** (TypeScript)
+- TypeScript 인터페이스 정의
+- `ChatMessage`: 채팅 메시지 구조
+- `ZodiacSign`: 12별자리 데이터 구조
+- `ZODIAC_SIGNS`: 12별자리 상수 배열 (양자리~물고기자리)
+
 **`public/js/chat.js`** (JavaScript)
 - 인증 모달 UI 제어
 - SSE 기반 스트리밍 응답 처리
 - LocalStorage 세션 관리
 - 날짜 입력 및 검증 로직
+- 12별자리 계산 및 표시 로직 (`calculateZodiacSign`, `updateZodiacDisplay`)
 
 **`public/css/styles.css`** (CSS)
 - 반응형 UI 스타일링
