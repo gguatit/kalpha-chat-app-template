@@ -46,7 +46,7 @@
         <div class="controls-left">
             <label for="birthdate-input">생년월일</label>
             <button id="birthdate-dec" aria-label="하루 감소" title="하루 감소">−</button>
-            <input id="birthdate-input" type="date" autocomplete="bday" inputmode="numeric" />
+            <input id="birthdate-input" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="YYYYMMDD" maxlength="8" />
             <button id="birthdate-inc" aria-label="하루 증가" title="하루 증가">＋</button>
           </div>
         <div class="controls-middle">

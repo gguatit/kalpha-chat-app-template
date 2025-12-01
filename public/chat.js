@@ -70,17 +70,7 @@ function loadHistory() {
   if (savedBirthdate) {
     userBirthdate = savedBirthdate;
     if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${userBirthdate}`;
-    if (birthdateInput) birthdateInput.value = userBirthdate;
-    // Sync selects
-    if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
-      const parts = userBirthdate.split("-");
-      if (parts.length === 3) {
-        birthdateYearSelect.value = parts[0];
-        birthdateMonthSelect.value = String(parseInt(parts[1], 10));
-        updateDaysSelect();
-        birthdateDaySelect.value = String(parseInt(parts[2], 10));
-      }
-    }
+    if (birthdateInput) birthdateInput.value = unformatBirthdate(userBirthdate);
   }
 }
 
@@ -92,69 +82,41 @@ function saveHistory() {
 
 // Initialize birthdate UI for mobile fallback
 function isDateInputSupported() {
-  try {
-    const input = document.createElement("input");
-    input.setAttribute("type", "date");
-    const invalidValue = "not-a-date";
-    input.setAttribute("value", invalidValue);
-    return input.value !== invalidValue;
-  } catch (e) {
-    return false;
-  }
+  // Always return true to force using the single input field, 
+  // but we are now using type="text" with inputmode="numeric" for everyone.
+  return true;
 }
 
 function populateBirthdateSelects() {
-  if (!birthdateYearSelect || !birthdateMonthSelect || !birthdateDaySelect) return;
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const startYear = currentYear - 100; // last 100 years
-  birthdateYearSelect.innerHTML = "<option value=''>년</option>";
-  for (let y = currentYear; y >= startYear; y--) {
-    const opt = document.createElement("option");
-    opt.value = String(y);
-    opt.textContent = String(y);
-    birthdateYearSelect.appendChild(opt);
-  }
-  birthdateMonthSelect.innerHTML = "<option value=''>월</option>";
-  for (let m = 1; m <= 12; m++) {
-    const opt = document.createElement("option");
-    opt.value = String(m);
-    opt.textContent = String(m).padStart(2, "0");
-    birthdateMonthSelect.appendChild(opt);
-  }
-  // Default days
-  updateDaysSelect();
+  // Deprecated: Selects are no longer used as primary input
 }
 
 function updateDaysSelect() {
-  if (!birthdateYearSelect || !birthdateMonthSelect || !birthdateDaySelect) return;
-  const y = parseInt(birthdateYearSelect.value, 10);
-  const m = parseInt(birthdateMonthSelect.value, 10);
-  let maxDays = 31;
-  if (!isNaN(m)) {
-    if ([4, 6, 9, 11].includes(m)) maxDays = 30;
-    else if (m === 2) {
-      if (!isNaN(y) && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) maxDays = 29;
-      else maxDays = 28;
-    }
-  }
-  birthdateDaySelect.innerHTML = "<option value=''>일</option>";
-  for (let d = 1; d <= maxDays; d++) {
-    const opt = document.createElement("option");
-    opt.value = String(d);
-    opt.textContent = String(d).padStart(2, "0");
-    birthdateDaySelect.appendChild(opt);
-  }
+  // Deprecated
 }
 
 function updatePreviewFromSelects() {
-  if (!birthdateYearSelect || !birthdateMonthSelect || !birthdateDaySelect || !birthdateDisplay) return;
-  const y = birthdateYearSelect.value;
-  const m = birthdateMonthSelect.value;
-  const d = birthdateDaySelect.value;
-  if (y && m && d) {
-    birthdateDisplay.textContent = `생년월일: ${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
+  // Deprecated
+}
+
+// Helper: Convert YYYYMMDD to YYYY-MM-DD
+function formatBirthdate(val) {
+  if (!val || val.length !== 8) return null;
+  const y = val.substring(0, 4);
+  const m = val.substring(4, 6);
+  const d = val.substring(6, 8);
+  // Basic validation
+  const numM = parseInt(m, 10);
+  const numD = parseInt(d, 10);
+  if (numM < 1 || numM > 12) return null;
+  if (numD < 1 || numD > 31) return null;
+  return `${y}-${m}-${d}`;
+}
+
+// Helper: Convert YYYY-MM-DD to YYYYMMDD
+function unformatBirthdate(val) {
+  if (!val) return "";
+  return val.replace(/-/g, "");
 }
 
 // add or subtract days/months/years from a date string YYYY-MM-DD
@@ -172,41 +134,33 @@ function adjustDateString(dateStr, { days = 0, months = 0, years = 0 }) {
 
 function addDaysToInput(days) {
   if (!birthdateInput) return;
-  const current = birthdateInput.value || userBirthdate || null;
-  const next = adjustDateString(current, { days });
-  birthdateInput.value = next;
-  if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${next}`;
-  // do not auto-push to chatHistory; user should click '설정' to store
-  // Sync selects in case they are visible
-  if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
-    const parts = next.split("-");
-    birthdateYearSelect.value = parts[0];
-    birthdateMonthSelect.value = String(parseInt(parts[1], 10));
-    updateDaysSelect();
-    birthdateDaySelect.value = String(parseInt(parts[2], 10));
-    updatePreviewFromSelects();
+  // Current value in input is YYYYMMDD, userBirthdate is YYYY-MM-DD
+  let current = userBirthdate || null;
+  
+  // If user manually typed something valid in input but didn't click set, try to use it
+  if (birthdateInput.value && birthdateInput.value.length === 8) {
+      const formatted = formatBirthdate(birthdateInput.value);
+      if (formatted) current = formatted;
   }
+
+  const next = adjustDateString(current, { days });
+  userBirthdate = next; // Update internal state immediately for buttons
+  birthdateInput.value = unformatBirthdate(next);
+  
+  if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${next}`;
 }
 
 function initBirthdateUI() {
-  // Use native date pickers when available (modern mobile browsers support them);
-  // fallback to selects only if input[type=date] is not supported.
-  const supported = isDateInputSupported();
-  if (!supported) {
-    // Show selects fallback
-    if (birthdateSelects) birthdateSelects.style.display = "flex";
-    if (birthdateInput) birthdateInput.style.display = "none";
-    populateBirthdateSelects();
-    // Update days when year/month change
-    if (birthdateYearSelect) birthdateYearSelect.addEventListener("change", updateDaysSelect);
-    if (birthdateMonthSelect) birthdateMonthSelect.addEventListener("change", updateDaysSelect);
-    if (birthdateYearSelect) birthdateYearSelect.addEventListener("change", updatePreviewFromSelects);
-    if (birthdateMonthSelect) birthdateMonthSelect.addEventListener("change", updatePreviewFromSelects);
-    if (birthdateDaySelect) birthdateDaySelect.addEventListener("change", updatePreviewFromSelects);
-  } else {
-    // Hide selects
-    if (birthdateSelects) birthdateSelects.style.display = "none";
-    if (birthdateInput) birthdateInput.style.display = "inline-block";
+  // Force display of input, hide selects
+  if (birthdateSelects) birthdateSelects.style.display = "none";
+  if (birthdateInput) {
+      birthdateInput.style.display = "inline-block";
+      // Ensure attributes are set for numeric keypad
+      birthdateInput.setAttribute("type", "text");
+      birthdateInput.setAttribute("inputmode", "numeric");
+      birthdateInput.setAttribute("pattern", "[0-9]*");
+      birthdateInput.setAttribute("placeholder", "YYYYMMDD");
+      birthdateInput.setAttribute("maxlength", "8");
   }
 }
 
@@ -249,11 +203,6 @@ if (toolbarDob) {
     // If native date input is shown, focus it; otherwise toggle selects visibility
     if (birthdateInput && birthdateInput.style.display !== 'none') {
       try { birthdateInput.focus(); } catch (e) {}
-    } else if (birthdateSelects) {
-      // toggle select visibility quickly
-      birthdateSelects.style.display = birthdateSelects.style.display === 'none' ? 'flex' : 'none';
-      // Scroll to bottom so the selects are visible
-      ensureScrollToBottomLater();
     }
   });
 }
@@ -311,19 +260,19 @@ if (targetDateInput) {
 
 // Update display when native date input changes
 if (birthdateInput) {
-  birthdateInput.addEventListener("change", () => {
-    if (birthdateInput.value && birthdateDisplay) {
-      birthdateDisplay.textContent = `생년월일: ${birthdateInput.value}`;
-    }
-    // Also update selects if present
-    if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
-      const parts = (birthdateInput && birthdateInput.value) ? birthdateInput.value.split("-") : [];
-      if (parts.length === 3) {
-        birthdateYearSelect.value = parts[0];
-        birthdateMonthSelect.value = String(parseInt(parts[1], 10));
-        updateDaysSelect();
-        birthdateDaySelect.value = String(parseInt(parts[2], 10));
+  birthdateInput.addEventListener("input", () => {
+    // Allow only numbers
+    birthdateInput.value = birthdateInput.value.replace(/[^0-9]/g, '');
+    
+    if (birthdateInput.value.length === 8) {
+      const formatted = formatBirthdate(birthdateInput.value);
+      if (formatted && birthdateDisplay) {
+        birthdateDisplay.textContent = `생년월일: ${formatted}`;
+      } else if (birthdateDisplay) {
+        birthdateDisplay.textContent = `생년월일: (유효하지 않음)`;
       }
+    } else {
+        if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: 입력중...`;
     }
   });
 }
@@ -350,34 +299,20 @@ if (setBirthdateButton && birthdateInput) {
   setBirthdateButton.addEventListener("click", () => {
     // Determine date source depending on native support
     let val = "";
-    if (birthdateInput && birthdateInput.type === "date" && birthdateInput.value) {
-      val = birthdateInput.value;
-    } else if (birthdateSelects && birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
-      const y = birthdateYearSelect.value;
-      const m = birthdateMonthSelect.value;
-      const d = birthdateDaySelect.value;
-      if (y && m && d) {
-        const mm = m.padStart(2, "0");
-        const dd = d.padStart(2, "0");
-        val = `${y}-${mm}-${dd}`;
+    if (birthdateInput && birthdateInput.value) {
+      // Try to parse YYYYMMDD
+      if (birthdateInput.value.length === 8) {
+          val = formatBirthdate(birthdateInput.value);
       }
     }
-    if (!val) return;
+    
+    if (!val) {
+        addMessageToChat("assistant", "생년월일을 올바른 형식(YYYYMMDD, 예: 20080301)으로 입력해주세요.");
+        return;
+    }
+    
     userBirthdate = val; // YYYY-MM-DD
-    // Sync UI inputs
-    if (birthdateInput && birthdateInput.type === "date" && birthdateInput.value !== val) {
-      birthdateInput.value = val;
-    }
-    if (birthdateYearSelect && birthdateMonthSelect && birthdateDaySelect) {
-      const parts = val.split("-");
-      if (parts.length === 3) {
-        birthdateYearSelect.value = parts[0];
-        birthdateMonthSelect.value = String(parseInt(parts[1], 10));
-        updateDaysSelect();
-        birthdateDaySelect.value = String(parseInt(parts[2], 10));
-      }
-    }
-
+    
     // Update display
     if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${val}`;
 
