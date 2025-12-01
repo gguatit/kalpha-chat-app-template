@@ -100,6 +100,16 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
         return new Response("Username already exists", { status: 409 });
       }
 
+      // Validate username format (alphanumeric, 4-20 chars)
+      if (!/^[a-zA-Z0-9]{4,20}$/.test(username)) {
+        return new Response("아이디는 영문/숫자 4~20자여야 합니다.", { status: 400 });
+      }
+
+      // Validate password strength (min 8 chars)
+      if (password.length < 8) {
+        return new Response("비밀번호는 최소 8자 이상이어야 합니다.", { status: 400 });
+      }
+
       // Hash password
       const salt = crypto.randomUUID();
       const passwordHash = await hashPassword(password, salt);
@@ -173,7 +183,22 @@ async function hashPassword(password: string, salt: string): Promise<string> {
   return btoa(String.fromCharCode(...new Uint8Array(exported)));
 }
 
-const JWT_SECRET = "secret-key-change-this-in-production"; // In prod use env.JWT_SECRET
+// Use a stronger secret key in production, preferably from environment variables
+const JWT_SECRET = "secret-key-change-this-in-production"; 
+
+// Helper to sanitize input strings to prevent XSS when reflecting back to user
+function sanitize(str: string): string {
+  return str.replace(/[&<>"']/g, (match) => {
+    const escape: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+    return escape[match];
+  });
+}
 
 async function signJWT(payload: any): Promise<string> {
   const header = { alg: "HS256", typ: "JWT" };
