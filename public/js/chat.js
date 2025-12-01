@@ -1,10 +1,10 @@
 /**
- * LLM Chat App Frontend
+ * LLM 채팅 앱 프론트엔드
  *
- * Handles the chat UI interactions and communication with the backend API.
+ * 채팅 UI 상호작용 및 백엔드 API와의 통신을 처리합니다.
  */
 
-// DOM elements
+// DOM 요소들
 const chatMessages = document.getElementById("chat-messages");
 const userInput = document.getElementById("user-input");
 const sendButton = document.getElementById("send-button");
@@ -193,7 +193,7 @@ authForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Chat state
+// 채팅 상태
 let chatHistory = [
   {
     role: "assistant",
@@ -205,7 +205,7 @@ let userBirthdate = null; // YYYY-MM-DD
 let userTargetDate = null; // YYYY-MM-DD (date for which to compute horoscope - defaults to today)
 let isProcessing = false;
 
-// Load history from local storage
+// 로컬 스토리지에서 히스토리 로드
 function loadHistory() {
   const saved = localStorage.getItem("chatHistory");
   if (saved) {
@@ -284,7 +284,14 @@ function unformatBirthdate(val) {
   return val.replace(/-/g, "");
 }
 
-// 12 Zodiac Signs data (matching backend)
+/**
+ * 12별자리 데이터 배열 (백엔드 src/types.ts와 동일)
+ * 
+ * 주의사항:
+ * - 백엔드와 프론트엔드의 데이터가 일치해야 함
+ * - 날짜 범위 수정 시 양쪽 모두 수정 필요
+ * - icon 속성은 프론트엔드 전용 (현재 미사용)
+ */
 const ZODIAC_SIGNS = [
   { name: "양자리", nameEn: "Aries", start: "0321", end: "0419", icon: "♈" },
   { name: "황소자리", nameEn: "Taurus", start: "0420", end: "0520", icon: "♉" },
@@ -295,32 +302,39 @@ const ZODIAC_SIGNS = [
   { name: "천칭자리", nameEn: "Libra", start: "0924", end: "1022", icon: "♎" },
   { name: "전갈자리", nameEn: "Scorpio", start: "1023", end: "1122", icon: "♏" },
   { name: "사수자리", nameEn: "Sagittarius", start: "1123", end: "1221", icon: "♐" },
-  { name: "염소자리", nameEn: "Capricorn", start: "1222", end: "0119", icon: "♑" },
+  { name: "염소자리", nameEn: "Capricorn", start: "1222", end: "0119", icon: "♑" },  // 연도 경계 주의!
   { name: "물병자리", nameEn: "Aquarius", start: "0120", end: "0218", icon: "♒" },
   { name: "물고기자리", nameEn: "Pisces", start: "0219", end: "0320", icon: "♓" }
 ];
 
 /**
- * Calculate zodiac sign from birthdate (YYYY-MM-DD format)
- * @param {string} birthdate - Date string in YYYY-MM-DD format
- * @returns {object|null} Zodiac sign object or null
+ * 생년월일로 12별자리 계산 (클라이언트 사이드)
+ * 
+ * @param {string} birthdate - 생년월일 (YYYY-MM-DD 형식)
+ * @returns {object|null} - 별자리 객체 또는 null
+ * 
+ * 동작:
+ * - 백엔드의 calculateZodiacSign()과 동일한 로직
+ * - UI에 별자리 표시하기 위해 사용
+ * - 백엔드는 AI에게 전달할 정보 생성, 프론트는 사용자에게 시각적 피드백
  */
 function calculateZodiacSign(birthdate) {
+  // 입력 검증
   if (!birthdate || birthdate.length !== 10) return null;
   
-  // Extract month and day as MMDD string
-  const mmdd = birthdate.substring(5).replace("-", ""); // "03-21" -> "0321"
+  // "1990-03-21"에서 "0321" 추출
+  const mmdd = birthdate.substring(5).replace("-", "");
   
-  // Find matching zodiac sign
+  // 12별자리 순회하며 날짜 범위 확인
   for (const sign of ZODIAC_SIGNS) {
-    // Handle year-boundary case (Capricorn: 12/22 - 01/19)
+    // 연도 경계 케이스: 염소자리(12/22~1/19)처럼 start > end인 경우
     if (sign.start > sign.end) {
-      // Spans year boundary
+      // OR 조건: 12월 이후 또는 1월 이전
       if (mmdd >= sign.start || mmdd <= sign.end) {
         return sign;
       }
     } else {
-      // Normal range within same year
+      // 일반 케이스: 같은 연도 내 범위
       if (mmdd >= sign.start && mmdd <= sign.end) {
         return sign;
       }
@@ -331,18 +345,34 @@ function calculateZodiacSign(birthdate) {
 }
 
 /**
- * Update zodiac display UI
- * @param {string} birthdate - YYYY-MM-DD format
+ * 별자리 표시 UI 업데이트
+ * 
+ * @param {string} birthdate - 생년월일 (YYYY-MM-DD 형식)
+ * 
+ * 동작:
+ * 1. 생년월일로 별자리 계산
+ * 2. zodiac-display 요소에 별자리명과 날짜 범위 표시
+ * 3. 계산 실패 시 UI 숨김
+ * 
+ * 호출 시점:
+ * - 생년월일 설정 버튼 클릭 시
+ * - 로그인 후 사용자 생년월일 로드 시
+ * - LocalStorage에서 기존 생년월일 복원 시
  */
 function updateZodiacDisplay(birthdate) {
+  // DOM 요소 존재 확인
   if (!zodiacDisplay || !zodiacSign || !zodiacDates) return;
   
+  // 별자리 계산
   const zodiac = calculateZodiacSign(birthdate);
+  
   if (zodiac) {
+    // 별자리 정보 표시
     zodiacDisplay.style.display = "flex";
-    zodiacSign.textContent = `${zodiac.name} (${zodiac.nameEn})`;
-    zodiacDates.textContent = `${zodiac.start.substring(0,2)}/${zodiac.start.substring(2)} - ${zodiac.end.substring(0,2)}/${zodiac.end.substring(2)}`;
+    zodiacSign.textContent = `${zodiac.name} (${zodiac.nameEn})`;  // 예: "양자리 (Aries)"
+    zodiacDates.textContent = `${zodiac.start.substring(0,2)}/${zodiac.start.substring(2)} - ${zodiac.end.substring(0,2)}/${zodiac.end.substring(2)}`;  // 예: "03/21 - 04/19"
   } else {
+    // 계산 실패 시 숨김
     zodiacDisplay.style.display = "none";
   }
 }
@@ -636,7 +666,7 @@ if (birthdateInput) {
 // 관련 코드 삭제 완료
 
 /**
- * Sends a message to the chat API and processes the response
+ * 채팅 API로 메시지를 전송하고 응답을 처리합니다
  */
 async function sendMessage() {
   const message = userInput.value.trim();
@@ -921,7 +951,7 @@ async function sendMessage() {
 }
 
 /**
- * Helper function to add message to chat
+ * 채팅에 메시지를 추가하는 헬퍼 함수
  */
 function addMessageToChat(role, content) {
   const messageEl = document.createElement("div");

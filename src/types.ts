@@ -28,18 +28,27 @@ export interface ChatMessage {
 }
 
 /**
- * Represents a zodiac sign with Korean/English names and date range.
+ * 12별자리(서양 점성술) 정보를 나타내는 인터페이스
+ * 
+ * 사용 예시:
+ * - 생년월일로 별자리 찾기
+ * - AI에게 별자리 특성 전달하여 맞춤형 운세 생성
  */
 export interface ZodiacSign {
-  name: string;       // Korean name (e.g., "양자리")
-  nameEn: string;     // English name (e.g., "Aries")
-  start: string;      // Start date in MMDD format (e.g., "0321")
-  end: string;        // End date in MMDD format (e.g., "0419")
-  traits: string;     // Key characteristics for horoscope
+  name: string;       // 한글 이름 (예: "양자리")
+  nameEn: string;     // 영문 이름 (예: "Aries")
+  start: string;      // 시작일 MMDD 형식 (예: "0321" = 3월 21일)
+  end: string;        // 종료일 MMDD 형식 (예: "0419" = 4월 19일)
+  traits: string;     // 별자리 특성 (AI 운세 생성에 사용)
 }
 
 /**
- * 12 Western Zodiac Signs data
+ * 12별자리 데이터 배열 (양자리부터 물고기자리까지)
+ * 
+ * 주의사항:
+ * - start > end인 경우 연도 경계를 넘어감 (예: 염소자리 12/22~1/19)
+ * - traits는 AI가 운세 생성 시 참고하는 핵심 특성
+ * - 날짜 범위 수정 시 반드시 MMDD 형식 유지 (4자리)
  */
 export const ZODIAC_SIGNS: ZodiacSign[] = [
   { name: "양자리", nameEn: "Aries", start: "0321", end: "0419", traits: "에너지와 추진력이 강해 신속한 결단이 필요한 시점에 유리합니다. 다만 성급함을 조절할 필요가 있습니다." },

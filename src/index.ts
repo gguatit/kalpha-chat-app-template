@@ -1,21 +1,21 @@
 /**
- * LLM Chat Application Template
+ * LLM 채팅 애플리케이션 템플릿
  *
- * A simple chat application using Cloudflare Workers AI.
- * This template demonstrates how to implement an LLM-powered chat interface with
- * streaming responses using Server-Sent Events (SSE).
+ * Cloudflare Workers AI를 사용한 간단한 채팅 애플리케이션입니다.
+ * 이 템플릿은 Server-Sent Events(SSE)를 사용하여 스트리밍 응답을 제공하는
+ * LLM 기반 채팅 인터페이스 구현 방법을 보여줍니다.
  *
  * @license MIT
  */
 import { Env, ChatMessage, ZODIAC_SIGNS, ZodiacSign } from "./types";
 
-// Model ID for Workers AI model
+// Workers AI 모델 ID
 // https://developers.cloudflare.com/workers-ai/models/
-// Switched from llama-3.3 (70B) to llama-3.1 (8B) for lower cost and faster response.
-// Use the typed FP8 variant (without '-fast').
+// 비용 절감 및 빠른 응답을 위해 llama-3.3(70B)에서 llama-3.1(8B)로 변경
+// 타입이 지정된 FP8 변형 사용 ('-fast' 제외)
 const MODEL_ID = "@cf/meta/llama-3.1-8b-instruct-fp8";
 
-// System prompt enforced for every conversation
+// 모든 대화에 강제 적용되는 시스템 프롬프트
 const SYSTEM_PROMPT = `당신은 한국어만 사용해야 하는 문법·표기·사실관계(고유명사 포함) 교정·검증 도우미입니다.
 1) 모든 응답은 한국어(표준 한국어)만 사용하십시오. 다른 언어로 답변하거나 일부 설명을 영어로 표기하지 마십시오.
 2) 입력 텍스트에 대해 문법, 맞춤법, 띄어쓰기, 어휘 및 문체(격식 수준)를 점검하고 가능한 교정안을 제시하십시오.
@@ -32,17 +32,20 @@ const SYSTEM_PROMPT = `당신은 한국어만 사용해야 하는 문법·표기
 13) 운세의 내용은 구체적이고 창의적으로 작성하되, 맹목적인 믿음보다는 실질적인 조언과 마음가짐에 초점을 맞추십시오.
 14) 사용자의 생년월일을 기반으로 서양 별자리(12궁)가 제공된 경우, 해당 별자리의 특성을 운세에 자연스럽게 반영하십시오. 별자리 정보는 "당신의 별자리는 [별자리명]입니다."와 같은 형식으로 언급하고, 각 별자리의 고유한 특성(에너지, 안정, 커뮤니케이션, 감성, 리더십, 분석력, 협력, 통찰, 확장, 목표달성, 혁신, 직관 등)을 운세 해석에 통합하십시오.`;
 // 추가 규칙: 운세 기능
-// - 사용자가 생년월일(생년-월-일, YYYY-MM-DD 형식)을 제공하거나 "운세"를 요청하면,
-//   해당 생년월일과 함께 사용자가 제공한 '운세 날짜'(YYYY-MM-DD 형식)를 기준으로 운세를 계산하십시오. (운세 날짜를 따로 제공하지 않으면 '오늘'을 기준으로 계산)
-//   기본 출력은 항상 '오늘 당신의 운세는 <요약>'로 시작해야 하며, 띠(한국/중국) 정보는 사용자가 제공했거나 신뢰 가능한 계산이 가능할 때만 포함하십시오.
+// - 사용자가 생년월일(YYYY-MM-DD 형식)을 제공하거나 "운세"를 요청하면,
+//   해당 생년월일과 사용자가 제공한 '운세 날짜'(YYYY-MM-DD 형식)를 기준으로 운세를 계산하십시오.
+//   (운세 날짜를 따로 제공하지 않으면 '오늘'을 기준으로 계산)
+// - 기본 출력은 항상 '오늘 당신의 운세는 <요약>'로 시작해야 하며,
+//   띠(한국/중국) 정보는 사용자가 제공했거나 신뢰 가능한 계산이 가능할 때만 포함하십시오.
 // - 모든 운세 응답은 한국어로 작성하고 점검한 사실/출처가 있다면 표기하십시오.
-// - 운세 출력은 가능한 경우 다음 형식을 따르십시오(간결하게):
-//   1) 요약(한 문장) 2) 띠(중국/한국) 3) 오늘의 운세(요약 + 추천 행동) 4) 확신도(높음/보통/낮음) 5) 참고(출처 또는 검증 방법)
-// - 사용자가 추가 정보(시/지역, 태어난 시각 등)를 제공하면, 운세 해석에 포함할 수 있으며 확실하지 않은 해석에 대해서는 '확인 필요'를 표시하십시오.
+// - 운세 출력 형식(간결하게): 1) 요약(한 문장) 2) 띠(중국/한국) 3) 오늘의 운세(요약 + 추천 행동)
+//   4) 확신도(높음/보통/낮음) 5) 참고(출처 또는 검증 방법)
+// - 사용자가 추가 정보(시/지역, 태어난 시각 등)를 제공하면 운세 해석에 포함할 수 있으며,
+//   확실하지 않은 해석에 대해서는 '확인 필요'를 표시하십시오.
 
 export default {
   /**
-   * Main request handler for the Worker
+   * Worker의 메인 요청 핸들러
    */
   async fetch(
     request: Request,
@@ -51,33 +54,33 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url);
 
-    // Handle static assets (frontend)
+    // 정적 자산(프론트엔드) 처리
     if (url.pathname === "/" || !url.pathname.startsWith("/api/")) {
       return env.ASSETS.fetch(request);
     }
 
-    // API Routes
+    // API 라우트
     if (url.pathname.startsWith("/api/auth/")) {
       return handleAuthRequest(request, env);
     }
 
     if (url.pathname === "/api/chat") {
-      // Handle POST requests for chat
+      // 채팅용 POST 요청 처리
       if (request.method === "POST") {
         return handleChatRequest(request, env);
       }
 
-      // Method not allowed for other request types
+      // 다른 요청 타입은 허용하지 않음
       return new Response("Method not allowed", { status: 405 });
     }
 
-    // Handle 404 for unmatched routes
+    // 일치하지 않는 라우트는 404 처리
     return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
 
 /**
- * Handles auth API requests
+ * 인증 API 요청 처리
  */
 async function handleAuthRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -95,27 +98,27 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
         return new Response("Username and password required", { status: 400 });
       }
 
-      // Check if user exists
+      // 사용자 존재 여부 확인
       const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(username).first();
       if (existing) {
         return new Response("Username already exists", { status: 409 });
       }
 
-      // Validate username format (alphanumeric, 4-20 chars)
+      // 사용자명 형식 검증 (영문/숫자, 4-20자)
       if (!/^[a-zA-Z0-9]{4,20}$/.test(username)) {
         return new Response("아이디는 영문/숫자 4~20자여야 합니다.", { status: 400 });
       }
 
-      // Validate password strength (min 8 chars)
+      // 비밀번호 강도 검증 (최소 8자)
       if (password.length < 8) {
         return new Response("비밀번호는 최소 8자 이상이어야 합니다.", { status: 400 });
       }
 
-      // Hash password
+      // 비밀번호 해싱
       const salt = crypto.randomUUID();
       const passwordHash = await hashPassword(password, salt);
 
-      // Insert user
+      // 사용자 정보 삽입
       await env.DB.prepare(
         "INSERT INTO users (username, password_hash, salt, birthdate) VALUES (?, ?, ?, ?)"
       ).bind(username, passwordHash, salt, birthdate || null).run();
@@ -131,20 +134,20 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
         return new Response("아이디와 비밀번호를 입력해주세요.", { status: 400 });
       }
 
-      // Get user
+      // 사용자 정보 조회
       const user = await env.DB.prepare("SELECT * FROM users WHERE username = ?").bind(username).first<any>();
       if (!user) {
         return new Response("존재하지 않는 아이디입니다.", { status: 401 });
       }
 
-      // Verify password
+      // 비밀번호 검증
       const hash = await hashPassword(password, user.salt);
       if (hash !== user.password_hash) {
         return new Response("비밀번호가 일치하지 않습니다.", { status: 401 });
       }
 
       try {
-        // Update last_login and location
+        // 마지막 로그인 시간 및 위치 업데이트
         const cf = request.cf as any;
         const location = cf ? `${cf.country || 'Unknown'}, ${cf.city || 'Unknown'}` : 'Unknown';
         
@@ -154,10 +157,10 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
           ).bind(location, user.id).run();
         } catch (dbError) {
           console.error("Database update error:", dbError);
-          // Continue even if update fails
+          // 업데이트 실패해도 계속 진행
         }
 
-        // Generate JWT
+        // JWT 토큰 생성
         const token = await signJWT({ sub: user.id, username: user.username, birthdate: user.birthdate });
 
         return new Response(JSON.stringify({ token, username: user.username, birthdate: user.birthdate }), {
@@ -202,10 +205,10 @@ async function hashPassword(password: string, salt: string): Promise<string> {
   return btoa(String.fromCharCode(...new Uint8Array(exported)));
 }
 
-// Use a stronger secret key in production, preferably from environment variables
+// 프로덕션 환경에서는 더 강력한 시크릿 키를 사용하세요 (환경 변수 권장)
 const JWT_SECRET = "secret-key-change-this-in-production"; 
 
-// Helper to sanitize input strings to prevent XSS when reflecting back to user
+// XSS 방지를 위한 입력 문자열 정제 헬퍼 함수
 function sanitize(str: string): string {
   return str.replace(/[&<>"']/g, (match) => {
     const escape: Record<string, string> = {
@@ -272,37 +275,50 @@ async function verifyJWT(token: string): Promise<any | null> {
 }
 
 /**
- * Calculate zodiac sign from birthdate (YYYY-MM-DD format)
- * @param birthdate - Date string in YYYY-MM-DD format
- * @returns ZodiacSign object or null if invalid
+ * 생년월일로 12별자리 계산
+ * 
+ * @param birthdate - 생년월일 문자열 (YYYY-MM-DD 형식, 예: "1990-03-21")
+ * @returns ZodiacSign 객체 또는 null (유효하지 않은 입력)
+ * 
+ * 동작 원리:
+ * 1. birthdate에서 월-일 추출 (MMDD 형식)
+ * 2. ZODIAC_SIGNS 배열을 순회하며 날짜 범위 비교
+ * 3. 연도 경계를 넘는 경우(염소자리) 특수 처리
+ * 
+ * 예시:
+ * - calculateZodiacSign("1990-03-21") -> 양자리
+ * - calculateZodiacSign("2000-12-25") -> 염소자리
  */
 function calculateZodiacSign(birthdate: string): ZodiacSign | null {
+  // 입력 검증: YYYY-MM-DD 형식 (길이 10)
   if (!birthdate || birthdate.length !== 10) return null;
   
-  // Extract month and day as MMDD string
-  const mmdd = birthdate.substring(5).replace("-", ""); // "03-21" -> "0321"
+  // 월-일 추출: "1990-03-21" -> "0321"
+  const mmdd = birthdate.substring(5).replace("-", "");
   
-  // Find matching zodiac sign
+  // 12별자리 중 일치하는 별자리 찾기
   for (const sign of ZODIAC_SIGNS) {
-    // Handle year-boundary case (Capricorn: 12/22 - 01/19)
+    // 연도 경계 처리: start > end인 경우 (예: 염소자리 1222~0119)
     if (sign.start > sign.end) {
-      // Spans year boundary
+      // mmdd가 start 이후이거나 end 이전이면 매칭
+      // 예: 1225(12월 25일) >= 1222 또는 0115(1월 15일) <= 0119
       if (mmdd >= sign.start || mmdd <= sign.end) {
         return sign;
       }
     } else {
-      // Normal range within same year
+      // 일반적인 범위: 같은 연도 내에서 start~end
       if (mmdd >= sign.start && mmdd <= sign.end) {
         return sign;
       }
     }
   }
   
+  // 일치하는 별자리가 없으면 null 반환
   return null;
 }
 
 /**
- * Handles chat API requests and streams responses
+ * 채팅 API 요청 처리 및 응답 스트리밍
  */
 async function handleChatRequest(
   request: Request,
@@ -327,26 +343,32 @@ async function handleChatRequest(
   }
 
   try {
-    // Parse JSON request body
+    // JSON 요청 본문 파싱
     const { messages = [] } = (await request.json()) as {
       messages: ChatMessage[];
     };
 
-    // Enforce our system prompt at the start of the conversation and remove other system messages
-    // This guarantees the assistant follows our Korean-only + verification rules
+    // 시스템 프롬프트 강제 적용 및 기존 system 메시지 제거
+    // 이를 통해 AI가 한국어 전용 + 검증 규칙을 항상 따르도록 보장
     const nonSystem = messages.filter((msg) => msg.role !== "system");
     
-    // Extract birthdate from chat history and calculate zodiac sign
+    // 채팅 기록에서 생년월일 추출 후 별자리 계산
+    // 별자리 정보를 시스템 프롬프트에 추가하여 AI가 운세 생성에 활용
     let zodiacInfo = "";
     const birthdateMsg = nonSystem.find((m) => m.content && m.content.startsWith("[생년월일]"));
     if (birthdateMsg) {
+      // "[생년월일] 1990-03-21" 형태에서 날짜 추출
       const birthdate = birthdateMsg.content.replace("[생년월일]", "").trim();
       const zodiac = calculateZodiacSign(birthdate);
+      
       if (zodiac) {
+        // AI에게 전달할 별자리 정보 포맷
+        // 예: "[별자리 정보] 사용자의 별자리: 양자리 (Aries, 03/21 - 04/19). 특성: 에너지와 추진력..."
         zodiacInfo = `\n\n[별자리 정보] 사용자의 별자리: ${zodiac.name} (${zodiac.nameEn}, ${zodiac.start.substring(0,2)}/${zodiac.start.substring(2)} - ${zodiac.end.substring(0,2)}/${zodiac.end.substring(2)}). 특성: ${zodiac.traits}`;
       }
     }
     
+    // 최종 메시지 배열: 시스템 프롬프트(+ 별자리 정보) + 사용자 메시지들
     const enforcedMessages = [
       { role: "system", content: SYSTEM_PROMPT + zodiacInfo },
       ...nonSystem,
@@ -360,11 +382,11 @@ async function handleChatRequest(
       },
       {
         returnRawResponse: true,
-        // Uncomment to use AI Gateway
+        // AI Gateway 사용 시 주석 해제
         // gateway: {
-        //   id: "YOUR_GATEWAY_ID", // Replace with your AI Gateway ID
-        //   skipCache: false,      // Set to true to bypass cache
-        //   cacheTtl: 3600,        // Cache time-to-live in seconds
+        //   id: "YOUR_GATEWAY_ID", // AI Gateway ID로 교체
+        //   skipCache: false,      // 캐시 우회 시 true로 설정
+        //   cacheTtl: 3600,        // 캐시 유지 시간(초)
         // },
       },
     );
