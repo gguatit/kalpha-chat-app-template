@@ -39,12 +39,21 @@ const authTitle = document.getElementById("auth-title");
 const authForm = document.getElementById("auth-form");
 const authUsernameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
+const togglePasswordBtn = document.getElementById("toggle-password");
 const authBirthdateInput = document.getElementById("auth-birthdate");
 const authCancelBtn = document.getElementById("auth-cancel");
 const authMessage = document.getElementById("auth-message");
 
 let authToken = localStorage.getItem("authToken");
 let authUser = localStorage.getItem("authUser");
+
+if (togglePasswordBtn) {
+  togglePasswordBtn.addEventListener("click", () => {
+    const type = authPasswordInput.getAttribute("type") === "password" ? "text" : "password";
+    authPasswordInput.setAttribute("type", type);
+    togglePasswordBtn.textContent = type === "password" ? "👁️" : "🙈";
+  });
+}
 
 function updateAuthUI() {
   if (authToken && authUser) {
@@ -155,6 +164,15 @@ authForm.addEventListener("submit", async (e) => {
       const errText = await res.text();
       authMessage.style.color = "red";
       authMessage.textContent = `오류: ${errText}`;
+      // Visual feedback
+      if (mode === "login") {
+          authUsernameInput.style.borderColor = "red";
+          authPasswordInput.style.borderColor = "red";
+          setTimeout(() => {
+              authUsernameInput.style.borderColor = "#ddd";
+              authPasswordInput.style.borderColor = "#ddd";
+          }, 2000);
+      }
     }
   } catch (err) {
     authMessage.style.color = "red";
@@ -626,10 +644,19 @@ async function sendMessage() {
   if (horoscopeCheckbox && horoscopeCheckbox.checked) {
     // If birthdate not set, prompt user
     if (!userBirthdate) {
-      addMessageToChat(
-        "assistant",
-        "운세를 요청하려면 생년월일을 먼저 설정해주세요.",
-      );
+      // If user is logged in but birthdate is missing in local state, try to fetch from profile
+      if (authToken) {
+         // This case should be handled by login, but as a fallback:
+         addMessageToChat(
+          "assistant",
+          "운세를 요청하려면 생년월일을 먼저 설정해주세요.",
+        );
+      } else {
+        addMessageToChat(
+          "assistant",
+          "운세를 요청하려면 생년월일을 먼저 설정하거나 로그인해주세요.",
+        );
+      }
       // reset input and UI and return
       isProcessing = false;
       userInput.disabled = false;

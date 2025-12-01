@@ -117,19 +117,19 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
     if (url.pathname === "/api/auth/login") {
       const { username, password } = body;
       if (!username || !password) {
-        return new Response("Username and password required", { status: 400 });
+        return new Response("아이디와 비밀번호를 입력해주세요.", { status: 400 });
       }
 
       // Get user
       const user = await env.DB.prepare("SELECT * FROM users WHERE username = ?").bind(username).first<any>();
       if (!user) {
-        return new Response("Invalid credentials", { status: 401 });
+        return new Response("존재하지 않는 아이디입니다.", { status: 401 });
       }
 
       // Verify password
       const hash = await hashPassword(password, user.salt);
       if (hash !== user.password_hash) {
-        return new Response("Invalid credentials", { status: 401 });
+        return new Response("비밀번호가 일치하지 않습니다.", { status: 401 });
       }
 
       // Generate JWT (simplified)
