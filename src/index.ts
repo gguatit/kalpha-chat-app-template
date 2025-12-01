@@ -143,6 +143,19 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
       }
 
       try {
+        // Update last_login and location
+        const cf = request.cf as any;
+        const location = cf ? `${cf.country || 'Unknown'}, ${cf.city || 'Unknown'}` : 'Unknown';
+        
+        try {
+          await env.DB.prepare(
+            "UPDATE users SET last_login = CURRENT_TIMESTAMP, location = ? WHERE id = ?"
+          ).bind(location, user.id).run();
+        } catch (dbError) {
+          console.error("Database update error:", dbError);
+          // Continue even if update fails
+        }
+
         // Generate JWT
         const token = await signJWT({ sub: user.id, username: user.username, birthdate: user.birthdate });
 
