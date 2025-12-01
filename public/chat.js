@@ -60,11 +60,21 @@ function updateAuthUI() {
     logoutBtn.style.display = "inline-block";
     userInfo.style.display = "inline-block";
     userInfo.textContent = `${authUser}님`;
+    
+    // 로그인 상태: 채팅 기능 활성화
+    userInput.disabled = false;
+    sendButton.disabled = false;
+    userInput.placeholder = "메시지를 입력하세요...";
   } else {
     loginBtn.style.display = "inline-block";
     signupBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     userInfo.style.display = "none";
+    
+    // 로그아웃 상태: 채팅 기능 비활성화
+    userInput.disabled = true;
+    sendButton.disabled = true;
+    userInput.placeholder = "로그인이 필요합니다";
   }
 }
 
@@ -558,6 +568,12 @@ if (birthdateInput) {
 async function sendMessage() {
   const message = userInput.value.trim();
 
+  // 인증 확인
+  if (!authToken) {
+    addMessageToChat("assistant", "로그인이 필요합니다. 로그인 후 다시 시도해주세요.");
+    return;
+  }
+
   // Don't send empty messages
   if (message === "" || isProcessing) return;
 
@@ -684,6 +700,7 @@ async function sendMessage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${authToken}`
       },
       body: JSON.stringify({
           messages: chatHistory,
@@ -692,6 +709,18 @@ async function sendMessage() {
 
     // Handle errors
     if (!response.ok) {
+      if (response.status === 401) {
+        // 인증 토큰이 만료되거나 유효하지 않음
+        authToken = null;
+        authUser = null;
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("authUser");
+        updateAuthUI();
+        addMessageToChat("assistant", "세션이 만료되었습니다. 다시 로그인해주세요.");
+        typingIndicator.classList.remove("visible");
+        isProcessing = false;
+        return;
+      }
       throw new Error("Failed to get response");
     }
 

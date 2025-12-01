@@ -228,13 +228,50 @@ async function hmacSha256(data: string, secret: string): Promise<string> {
   return btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
+async function verifyJWT(token: string): Promise<any | null> {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const [encodedHeader, encodedPayload, providedSignature] = parts;
+    const data = `${encodedHeader}.${encodedPayload}`;
+    const expectedSignature = await hmacSha256(data, JWT_SECRET);
+    
+    if (providedSignature !== expectedSignature) return null;
+    
+    // Decode payload
+    const payloadJson = atob(encodedPayload.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(payloadJson);
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
- * Handles chat API requests
+ * Handles chat API requests and streams responses
  */
 async function handleChatRequest(
   request: Request,
   env: Env,
 ): Promise<Response> {
+  // JWT 인증 확인
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "로그인이 필요합니다." }), { 
+      status: 401,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  const token = authHeader.substring(7); // Remove "Bearer " prefix
+  const payload = await verifyJWT(token);
+  if (!payload) {
+    return new Response(JSON.stringify({ error: "유효하지 않은 인증 토큰입니다." }), { 
+      status: 401,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
   try {
     // Parse JSON request body
     const { messages = [] } = (await request.json()) as {
