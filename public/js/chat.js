@@ -340,8 +340,6 @@ function updateZodiacDisplay(birthdate) {
   const zodiac = calculateZodiacSign(birthdate);
   if (zodiac) {
     zodiacDisplay.style.display = "flex";
-    const iconSpan = zodiacDisplay.querySelector('.zodiac-icon');
-    if (iconSpan) iconSpan.textContent = zodiac.icon;
     zodiacSign.textContent = `${zodiac.name} (${zodiac.nameEn})`;
     zodiacDates.textContent = `${zodiac.start.substring(0,2)}/${zodiac.start.substring(2)} - ${zodiac.end.substring(0,2)}/${zodiac.end.substring(2)}`;
   } else {

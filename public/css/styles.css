@@ -635,31 +635,14 @@ footer {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  color: white;
+  padding: 4px 10px;
+  background: var(--light-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
   font-size: 0.85rem;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
   margin-left: 8px;
-  animation: zodiacFadeIn 0.5s ease-out;
-}
-
-@keyframes zodiacFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.zodiac-icon {
-  font-size: 1.2rem;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
 }
 
 .zodiac-dates-small {
@@ -675,12 +658,8 @@ footer {
   
   .zodiac-info {
     font-size: 0.75rem;
-    padding: 4px 8px;
+    padding: 3px 6px;
     gap: 4px;
-  }
-  
-  .zodiac-icon {
-    font-size: 1rem;
   }
   
   .zodiac-dates-small {
