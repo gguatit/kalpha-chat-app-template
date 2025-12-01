@@ -84,10 +84,6 @@
           <button id="target-date-today" class="btn-small" title="오늘로 설정" style="margin-left:4px; padding:2px 6px; font-size:0.8rem;">오늘</button>
         </div>
         <div class="controls-right">
-          <div id="zodiac-display" class="zodiac-info" style="display:none;">
-            <span id="zodiac-sign"></span>
-            <span id="zodiac-dates" class="zodiac-dates-small"></span>
-          </div>
           <button id="set-birthdate-button" class="btn-primary">설정</button>
           <button id="clear-birthdate-button" class="btn-muted">지우기</button>
           <button id="controls-toggle" class="btn-icon" aria-label="옵션">⚙️</button>
@@ -129,6 +125,10 @@
           </div>
 
           <div class="textarea-row">
+            <div id="zodiac-display" class="zodiac-info" style="display:none;">
+              <span id="zodiac-sign"></span>
+              <span id="zodiac-dates" class="zodiac-dates-small"></span>
+            </div>
             <textarea
               id="user-input"
               placeholder="메시지를 입력하세요... (한국어로 입력해주세요)"

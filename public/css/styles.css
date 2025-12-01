@@ -688,6 +688,11 @@ footer {
   align-items: center;
 }
 
+.textarea-row #zodiac-display {
+  order: -1;
+  flex-shrink: 0;
+}
+
 .textarea-row textarea {
   flex: 1;
 }
