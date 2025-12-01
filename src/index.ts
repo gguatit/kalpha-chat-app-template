@@ -142,6 +142,13 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
         return new Response("비밀번호가 일치하지 않습니다.", { status: 401 });
       }
 
+      // Update last_login and location
+      const cf = request.cf as any;
+      const location = cf ? `${cf.country || 'Unknown'}, ${cf.city || 'Unknown'}` : 'Unknown';
+      await env.DB.prepare(
+        "UPDATE users SET last_login = CURRENT_TIMESTAMP, location = ? WHERE id = ?"
+      ).bind(location, user.id).run();
+
       // Generate JWT (simplified)
       const token = await signJWT({ sub: user.id, username: user.username, birthdate: user.birthdate });
 
