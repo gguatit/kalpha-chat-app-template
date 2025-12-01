@@ -56,6 +56,10 @@ export default {
     }
 
     // API Routes
+    if (url.pathname.startsWith("/api/auth/")) {
+      return handleAuthRequest(request, env);
+    }
+
     if (url.pathname === "/api/chat") {
       // Handle POST requests for chat
       if (request.method === "POST") {
@@ -70,6 +74,134 @@ export default {
     return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Handles auth API requests
+ */
+async function handleAuthRequest(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  try {
+    const body = await request.json() as any;
+    
+    if (url.pathname === "/api/auth/register") {
+      const { username, password, birthdate } = body;
+      if (!username || !password) {
+        return new Response("Username and password required", { status: 400 });
+      }
+
+      // Check if user exists
+      const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(username).first();
+      if (existing) {
+        return new Response("Username already exists", { status: 409 });
+      }
+
+      // Hash password
+      const salt = crypto.randomUUID();
+      const passwordHash = await hashPassword(password, salt);
+
+      // Insert user
+      await env.DB.prepare(
+        "INSERT INTO users (username, password_hash, salt, birthdate) VALUES (?, ?, ?, ?)"
+      ).bind(username, passwordHash, salt, birthdate || null).run();
+
+      return new Response(JSON.stringify({ success: true }), { 
+        headers: { "Content-Type": "application/json" } 
+      });
+    }
+
+    if (url.pathname === "/api/auth/login") {
+      const { username, password } = body;
+      if (!username || !password) {
+        return new Response("Username and password required", { status: 400 });
+      }
+
+      // Get user
+      const user = await env.DB.prepare("SELECT * FROM users WHERE username = ?").bind(username).first<any>();
+      if (!user) {
+        return new Response("Invalid credentials", { status: 401 });
+      }
+
+      // Verify password
+      const hash = await hashPassword(password, user.salt);
+      if (hash !== user.password_hash) {
+        return new Response("Invalid credentials", { status: 401 });
+      }
+
+      // Generate JWT (simplified)
+      const token = await signJWT({ sub: user.id, username: user.username, birthdate: user.birthdate });
+
+      return new Response(JSON.stringify({ token, username: user.username, birthdate: user.birthdate }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response("Not found", { status: 404 });
+  } catch (e) {
+    console.error(e);
+    return new Response("Internal Server Error", { status: 500 });
+  }
+}
+
+async function hashPassword(password: string, salt: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits", "deriveKey"]
+  );
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: encoder.encode(salt),
+      iterations: 100000,
+      hash: "SHA-256"
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  
+  const exported = await crypto.subtle.exportKey("raw", key) as ArrayBuffer;
+  return btoa(String.fromCharCode(...new Uint8Array(exported)));
+}
+
+const JWT_SECRET = "secret-key-change-this-in-production"; // In prod use env.JWT_SECRET
+
+async function signJWT(payload: any): Promise<string> {
+  const header = { alg: "HS256", typ: "JWT" };
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const signature = await hmacSha256(data, JWT_SECRET);
+  
+  return `${data}.${signature}`;
+}
+
+async function hmacSha256(data: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(data)
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
 
 /**
  * Handles chat API requests

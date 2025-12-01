@@ -17,5 +17,12 @@
   "ai": {
     "binding": "AI"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "horoscope-db",
+      "database_id": "94ab3b09-aa89-445c-b2bf-1929854119d1"
+    }
+  ],
   "upload_source_maps": true
 }

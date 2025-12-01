@@ -29,6 +29,139 @@ const targetDateDec = document.getElementById("target-date-dec");
 const targetDateToday = document.getElementById("target-date-today");
 // '오늘로 설정' 관련 코드 제거됨
 
+// Auth elements
+const loginBtn = document.getElementById("login-btn");
+const signupBtn = document.getElementById("signup-btn");
+const logoutBtn = document.getElementById("logout-btn");
+const userInfo = document.getElementById("user-info");
+const authModal = document.getElementById("auth-modal");
+const authTitle = document.getElementById("auth-title");
+const authForm = document.getElementById("auth-form");
+const authUsernameInput = document.getElementById("auth-username");
+const authPasswordInput = document.getElementById("auth-password");
+const authBirthdateInput = document.getElementById("auth-birthdate");
+const authCancelBtn = document.getElementById("auth-cancel");
+const authMessage = document.getElementById("auth-message");
+
+let authToken = localStorage.getItem("authToken");
+let authUser = localStorage.getItem("authUser");
+
+function updateAuthUI() {
+  if (authToken && authUser) {
+    loginBtn.style.display = "none";
+    signupBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
+    userInfo.style.display = "inline-block";
+    userInfo.textContent = `${authUser}님`;
+  } else {
+    loginBtn.style.display = "inline-block";
+    signupBtn.style.display = "inline-block";
+    logoutBtn.style.display = "none";
+    userInfo.style.display = "none";
+  }
+}
+
+loginBtn.addEventListener("click", () => {
+  authModal.style.display = "flex";
+  authTitle.textContent = "로그인";
+  authBirthdateInput.style.display = "none";
+  authBirthdateInput.required = false;
+  authForm.dataset.mode = "login";
+  authMessage.textContent = "";
+});
+
+signupBtn.addEventListener("click", () => {
+  authModal.style.display = "flex";
+  authTitle.textContent = "회원가입";
+  authBirthdateInput.style.display = "block";
+  authBirthdateInput.required = false; // Optional
+  authForm.dataset.mode = "signup";
+  authMessage.textContent = "";
+});
+
+authCancelBtn.addEventListener("click", () => {
+  authModal.style.display = "none";
+});
+
+logoutBtn.addEventListener("click", () => {
+  authToken = null;
+  authUser = null;
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
+  // Clear birthdate if it came from user profile
+  // But maybe user wants to keep it? Let's keep it for now or clear it?
+  // Let's clear it to be safe
+  userBirthdate = null;
+  localStorage.removeItem("userBirthdate");
+  if (birthdateDisplay) birthdateDisplay.textContent = "";
+  if (birthdateInput) birthdateInput.value = "";
+  
+  updateAuthUI();
+  addMessageToChat("assistant", "로그아웃되었습니다.");
+});
+
+authForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const mode = authForm.dataset.mode;
+  const username = authUsernameInput.value;
+  const password = authPasswordInput.value;
+  const birthdateRaw = authBirthdateInput.value;
+  
+  let birthdate = null;
+  if (birthdateRaw && birthdateRaw.length === 8) {
+    birthdate = formatBirthdate(birthdateRaw);
+  }
+
+  const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+  
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, birthdate })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (mode === "login") {
+        authToken = data.token;
+        authUser = data.username;
+        localStorage.setItem("authToken", authToken);
+        localStorage.setItem("authUser", authUser);
+        
+        if (data.birthdate) {
+          userBirthdate = data.birthdate;
+          localStorage.setItem("userBirthdate", userBirthdate);
+          if (birthdateDisplay) birthdateDisplay.textContent = `생년월일: ${userBirthdate}`;
+          if (birthdateInput) birthdateInput.value = unformatBirthdate(userBirthdate);
+        }
+        
+        updateAuthUI();
+        authModal.style.display = "none";
+        addMessageToChat("assistant", `${authUser}님, 환영합니다!`);
+      } else {
+        // Signup success, switch to login
+        authMessage.style.color = "green";
+        authMessage.textContent = "회원가입 성공! 로그인해주세요.";
+        setTimeout(() => {
+            authTitle.textContent = "로그인";
+            authBirthdateInput.style.display = "none";
+            authForm.dataset.mode = "login";
+            authMessage.textContent = "";
+            authPasswordInput.value = "";
+        }, 1500);
+      }
+    } else {
+      const errText = await res.text();
+      authMessage.style.color = "red";
+      authMessage.textContent = `오류: ${errText}`;
+    }
+  } catch (err) {
+    authMessage.style.color = "red";
+    authMessage.textContent = "서버 통신 오류";
+  }
+});
+
 // Chat state
 let chatHistory = [
   {
@@ -168,6 +301,7 @@ function initBirthdateUI() {
 document.addEventListener("DOMContentLoaded", () => {
   initBirthdateUI();
   loadHistory();
+  updateAuthUI();
 });
 
 // Mobile UX: When input or birthdate inputs have focus, ensure the chat scrolls to bottom

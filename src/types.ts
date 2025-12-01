@@ -9,6 +9,11 @@ export interface Env {
   AI: Ai;
 
   /**
+   * Binding for D1 Database.
+   */
+  DB: D1Database;
+
+  /**
    * Binding for static assets.
    */
   ASSETS: { fetch: (request: Request) => Promise<Response> };
