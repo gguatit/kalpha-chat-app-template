@@ -117,8 +117,18 @@ logoutBtn.addEventListener("click", () => {
   if (birthdateDisplay) birthdateDisplay.textContent = "";
   if (birthdateInput) birthdateInput.value = "";
   
+  // 대화 내용 삭제
+  chatHistory = [
+    {
+      role: "assistant",
+      content: "안녕하세요! 저는 생년월일을 기반으로 운세를 알려드리는 한국어 전용 도우미입니다. 생년월일을 입력하거나 UI에서 설정하시면 띠 기반의 오늘의 운세 및 간단한 추천 행동을 한국어로 안내해 드립니다.",
+    },
+  ];
+  localStorage.removeItem("chatHistory");
+  chatMessages.innerHTML = "";
+  
   updateAuthUI();
-  addMessageToChat("assistant", "로그아웃되었습니다.");
+  addMessageToChat("assistant", "로그아웃되었습니다. 대화 내용이 삭제되었습니다.");
 });
 
 authForm.addEventListener("submit", async (e) => {
@@ -157,6 +167,16 @@ authForm.addEventListener("submit", async (e) => {
           if (birthdateInput) birthdateInput.value = unformatBirthdate(userBirthdate);
           updateZodiacDisplay(userBirthdate);
         }
+        
+        // 로그인 시 대화 내용 삭제
+        chatHistory = [
+          {
+            role: "assistant",
+            content: "안녕하세요! 저는 생년월일을 기반으로 운세를 알려드리는 한국어 전용 도우미입니다. 생년월일을 입력하거나 UI에서 설정하시면 띠 기반의 오늘의 운세 및 간단한 추천 행동을 한국어로 안내해 드립니다.",
+          },
+        ];
+        localStorage.removeItem("chatHistory");
+        chatMessages.innerHTML = "";
         
         updateAuthUI();
         authModal.style.display = "none";
