@@ -41,7 +41,7 @@ export default {
     if (url.pathname === "/api/chat") {
       // 채팅용 POST 요청 처리
       if (request.method === "POST") {
-        return handleChatRequest(request, env);
+        return handleChatRequest(request, env, ctx);
       }
 
       // 다른 요청 타입은 허용하지 않음
@@ -297,6 +297,7 @@ function calculateZodiacSign(birthdate: string): ZodiacSign | null {
 async function handleChatRequest(
   request: Request,
   env: Env,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   // JWT 인증 확인
   const authHeader = request.headers.get("Authorization");
