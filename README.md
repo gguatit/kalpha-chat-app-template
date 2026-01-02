@@ -333,7 +333,7 @@ Today-s-horoscope/
 - `ZodiacSign`: 12별자리 데이터 구조
 - `ZODIAC_SIGNS`: 12별자리 상수 배열 (양자리~물고기자리)
 
-**`public/js/chat.js`** (JavaScript)
+**`public/js/app.js`** (JavaScript)
 - 인증 모달 UI 제어
 - SSE 기반 스트리밍 응답 처리
 - LocalStorage 세션 관리
