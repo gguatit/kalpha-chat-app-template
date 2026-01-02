@@ -355,11 +355,25 @@ async function handleChatRequest(
     // 사용자의 마지막 메시지 추출 (AI에게 보낸 실제 질문)
     const userLastMessage = nonSystem.filter(m => m.role === "user").slice(-1)[0]?.content || "";
 
-    // total_requests 증가 (비동기 처리, 응답 지연 방지)
+    // total_requests 증가 및 질문 기록 저장 (비동기 처리)
     ctx.waitUntil(
-      env.DB.prepare("UPDATE users SET total_requests = total_requests + 1 WHERE id = ?")
-        .bind(userId)
-        .run()
+      (async () => {
+        try {
+          // 요청 횟수 증가
+          await env.DB.prepare("UPDATE users SET total_requests = total_requests + 1 WHERE id = ?")
+            .bind(userId)
+            .run();
+          
+          // 사용자 질문 기록 (AI 응답은 일단 null로 저장)
+          if (userLastMessage) {
+            await env.DB.prepare(
+              "INSERT INTO chat_history (user_id, user_message, ai_response) VALUES (?, ?, ?)"
+            ).bind(userId, userLastMessage, null).run();
+          }
+        } catch (e) {
+          console.error("Failed to update stats:", e);
+        }
+      })()
     );
 
     const response = await env.AI.run(
@@ -377,57 +391,6 @@ async function handleChatRequest(
         //   cacheTtl: 3600,        // 캐시 유지 시간(초)
         // },
       },
-    );
-
-    // AI 응답 스트림을 클론하여 히스토리에 저장
-    // (원본 response는 사용자에게 반환)
-    const responseClone = response.clone();
-    
-    // 백그라운드에서 AI 응답 저장 (비동기 처리)
-    ctx.waitUntil(
-      (async () => {
-        try {
-          // 스트림에서 AI 응답 텍스트 추출
-          const reader = responseClone.body?.getReader();
-          const decoder = new TextDecoder();
-          let aiResponseText = "";
-          
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split("\n");
-              
-              for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  const data = line.substring(6).trim();
-                  if (data === "[DONE]") break;
-                  
-                  try {
-                    const json = JSON.parse(data);
-                    if (json.response) {
-                      aiResponseText += json.response;
-                    }
-                  } catch (e) {
-                    // JSON 파싱 실패 무시
-                  }
-                }
-              }
-            }
-          }
-          
-          // chat_history에 저장
-          if (aiResponseText) {
-            await env.DB.prepare(
-              "INSERT INTO chat_history (user_id, user_message, ai_response) VALUES (?, ?, ?)"
-            ).bind(userId, userLastMessage, aiResponseText).run();
-          }
-        } catch (e) {
-          console.error("Failed to save chat history:", e);
-        }
-      })()
     );
 
     return response;
