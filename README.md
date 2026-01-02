@@ -72,7 +72,11 @@ graph TB
 - **Llama 3.1 8B Instruct FP8** 모델 기반 운세 생성
 - 생년월일과 목표 날짜를 기반으로 한 맞춤형 분석
 - **12별자리(서양 점성술)** 자동 계산 및 운세 특성 반영
+  - 별자리별 세부 특성 (에너지, 감성, 집중력, 직관력 등) 자연스럽게 운세에 통합
+  - 12개 별자리(양자리~물고기자리) 각각의 강점과 주의사항 맞춤 반영
 - 긍정적/부정적 조언의 균형잡힌 제공 (70% 긍정, 30% 주의)
+- **간결한 운세 형식**: "오늘 당신의 운세는 '<한 줄 요약>' 입니다." 형식 사용
+  - 예: "오늘 당신의 운세는 '새로운 기회가 찾아온다' 입니다."
 - 환각(hallucination) 방지를 위한 시스템 프롬프트 최적화
 - 한국어 전용 응답 및 문법 교정
 
@@ -327,19 +331,25 @@ Today-s-horoscope/
 
 ### Key Files Description
 
-**`src/index.ts`** (380 lines)
+**`src/index.ts`** (477 lines)
 - **API 라우팅**: `/api/auth/*` (회원가입/로그인), `/api/chat` (AI 채팅)
 - **JWT 인증**: HS256 서명, 토큰 생성/검증
 - **PBKDF2 해싱**: 100,000 iterations, UUID salt
 - **Workers AI 통합**: Llama 3.1 8B 모델, SSE 스트리밍 응답
 - **D1 쿼리**: Prepared statements로 SQL injection 방지
-- **간소화된 SYSTEM_PROMPT**: 7가지 핵심 규칙으로 압축 (40줄→15줄)
+- **최적화된 SYSTEM_PROMPT**: 8가지 핵심 규칙 + 12별자리 특성 가이드라인
+  - 간결한 운세 형식: "오늘 당신의 운세는 '<요약>' 입니다."
+  - 별자리별 상세 특성 (열정, 안정, 소통, 감성, 자신감, 세심함, 균형, 직관, 모험, 목표, 독창성, 상상력)
 
 **`src/types.ts`** (67 lines)
 - **Env**: Cloudflare Workers 환경 바인딩 (AI, DB, ASSETS)
 - **ChatMessage**: `{role, content}` 채팅 메시지 구조
-- **ZodiacSign**: 12별자리 데이터 (`name`, `nameEn`, `start`, `end`, `traits`)
-- **ZODIAC_SIGNS**: 12별자리 상수 배열 (양자리~물고기자리)
+- **ZodiacSign**: 12별자리 데이터 구조
+  - `name`: 한국어 별자리명 (예: "양자리", "황소자리")
+  - `nameEn`: 영어 별자리명 (Aries, Taurus 등)
+  - `start`, `end`: 별자리 기간 (MMDD 형식)
+  - `traits`: 별자리 특성 설명
+- **ZODIAC_SIGNS**: 12별자리 상수 배열 (양자리~물고기자리, 날짜 범위 포함)
 
 **`public/js/app.js`** (JavaScript)
 - **인증 UI**: 로그인/회원가입 모달, JWT 토큰 관리
