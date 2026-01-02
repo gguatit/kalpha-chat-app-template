@@ -41,7 +41,8 @@ const userInfo = document.getElementById("user-info");
 const authModal = document.getElementById("auth-modal");
 const authTitle = document.getElementById("auth-title");
 const authForm = document.getElementById("auth-form");
-const authUsernameInput = document.getElementById("auth-username");
+const authUserIdInput = document.getElementById("auth-userid");
+const authUserNameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
 const togglePasswordCheck = document.getElementById("toggle-password-check");
 const authBirthdateInput = document.getElementById("auth-birthdate");
@@ -50,6 +51,7 @@ const authMessage = document.getElementById("auth-message");
 
 let authToken = localStorage.getItem("authToken");
 let authUser = localStorage.getItem("authUser");
+let authUserName = localStorage.getItem("authUserName");
 
 if (togglePasswordCheck) {
   togglePasswordCheck.addEventListener("change", () => {
@@ -58,12 +60,12 @@ if (togglePasswordCheck) {
 }
 
 function updateAuthUI() {
-  if (authToken && authUser) {
+  if (authToken && authUserName) {
     loginBtn.style.display = "none";
     signupBtn.style.display = "none";
     logoutBtn.style.display = "inline-block";
     userInfo.style.display = "inline-block";
-    userInfo.textContent = `${authUser}님`;
+    userInfo.textContent = `${authUserName}님`;
     
     // 로그인 상태: 채팅 기능 활성화
     userInput.disabled = false;
@@ -85,6 +87,8 @@ function updateAuthUI() {
 loginBtn.addEventListener("click", () => {
   authModal.style.display = "flex";
   authTitle.textContent = "로그인";
+  authUserNameInput.style.display = "none";
+  authUserNameInput.required = false;
   authBirthdateInput.style.display = "none";
   authBirthdateInput.required = false;
   authForm.dataset.mode = "login";
@@ -94,6 +98,8 @@ loginBtn.addEventListener("click", () => {
 signupBtn.addEventListener("click", () => {
   authModal.style.display = "flex";
   authTitle.textContent = "회원가입";
+  authUserNameInput.style.display = "block";
+  authUserNameInput.required = true;
   authBirthdateInput.style.display = "block";
   authBirthdateInput.required = false; // Optional
   authForm.dataset.mode = "signup";
@@ -107,8 +113,10 @@ authCancelBtn.addEventListener("click", () => {
 logoutBtn.addEventListener("click", () => {
   authToken = null;
   authUser = null;
+  authUserName = null;
   localStorage.removeItem("authToken");
   localStorage.removeItem("authUser");
+  localStorage.removeItem("authUserName");
   // Clear birthdate if it came from user profile
   // But maybe user wants to keep it? Let's keep it for now or clear it?
   // Let's clear it to be safe
@@ -134,7 +142,8 @@ logoutBtn.addEventListener("click", () => {
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const mode = authForm.dataset.mode;
-  const username = authUsernameInput.value;
+  const userId = authUserIdInput.value;
+  const userName = authUserNameInput.value;
   const password = authPasswordInput.value;
   const birthdateRaw = authBirthdateInput.value;
   
@@ -146,19 +155,25 @@ authForm.addEventListener("submit", async (e) => {
   const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
   
   try {
+    const body = mode === "login" 
+      ? { userId, password } 
+      : { userId, userName, password, birthdate };
+    
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, birthdate })
+      body: JSON.stringify(body)
     });
     
     if (res.ok) {
       const data = await res.json();
       if (mode === "login") {
         authToken = data.token;
-        authUser = data.username;
+        authUser = data.userId;
+        authUserName = data.userName;
         localStorage.setItem("authToken", authToken);
         localStorage.setItem("authUser", authUser);
+        localStorage.setItem("authUserName", authUserName);
         
         if (data.birthdate) {
           userBirthdate = data.birthdate;
@@ -180,13 +195,15 @@ authForm.addEventListener("submit", async (e) => {
         
         updateAuthUI();
         authModal.style.display = "none";
-        addMessageToChat("assistant", `${authUser}님, 환영합니다!`);
+        addMessageToChat("assistant", `${authUserName}님, 환영합니다!`);
       } else {
         // Signup success, switch to login
         authMessage.style.color = "green";
         authMessage.textContent = "회원가입 성공! 로그인해주세요.";
         setTimeout(() => {
             authTitle.textContent = "로그인";
+            authUserNameInput.style.display = "none";
+            authUserNameInput.required = false;
             authBirthdateInput.style.display = "none";
             authForm.dataset.mode = "login";
             authMessage.textContent = "";

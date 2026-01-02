@@ -89,25 +89,30 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
     const body = await request.json() as any;
     
     if (url.pathname === "/api/auth/register") {
-      const { username, password, birthdate } = body;
-      if (!username || !password) {
-        return new Response("Username and password required", { status: 400 });
+      const { userId, userName, password, birthdate } = body;
+      if (!userId || !userName || !password) {
+        return new Response("아이디, 이름, 비밀번호는 필수입니다.", { status: 400 });
       }
 
       // 사용자 존재 여부 확인
-      const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(username).first();
+      const existing = await env.DB.prepare("SELECT id FROM users WHERE user_id = ?").bind(userId).first();
       if (existing) {
-        return new Response("Username already exists", { status: 409 });
+        return new Response("이미 사용 중인 아이디입니다.", { status: 409 });
       }
 
-      // 사용자명 형식 검증 (영문/숫자, 4-20자)
-      if (!/^[a-zA-Z0-9]{4,20}$/.test(username)) {
-        return new Response("아이디는 영문/숫자 4~20자여야 합니다.", { status: 400 });
+      // 사용자명 형식 검증 (영문/숫자, 4-8자)
+      if (!/^[a-zA-Z0-9]{4,8}$/.test(userId)) {
+        return new Response("아이디는 영문/숫자 4~8자여야 합니다.", { status: 400 });
       }
 
-      // 비밀번호 강도 검증 (최소 8자)
-      if (password.length < 8) {
-        return new Response("비밀번호는 최소 8자 이상이어야 합니다.", { status: 400 });
+      // 이름 길이 검증 (2-4자)
+      if (userName.length < 2 || userName.length > 4) {
+        return new Response("이름은 2~4자여야 합니다.", { status: 400 });
+      }
+
+      // 비밀번호 강도 검증 (8-20자)
+      if (password.length < 8 || password.length > 20) {
+        return new Response("비밀번호는 8~20자여야 합니다.", { status: 400 });
       }
 
       // 비밀번호 해싱
@@ -116,8 +121,8 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
 
       // 사용자 정보 삽입
       await env.DB.prepare(
-        "INSERT INTO users (username, password_hash, salt, birthdate) VALUES (?, ?, ?, ?)"
-      ).bind(username, passwordHash, salt, birthdate || null).run();
+        "INSERT INTO users (user_id, user_name, password_hash, salt, birthdate) VALUES (?, ?, ?, ?, ?)"
+      ).bind(userId, userName, passwordHash, salt, birthdate || null).run();
 
       return new Response(JSON.stringify({ success: true }), { 
         headers: { "Content-Type": "application/json" } 
@@ -125,13 +130,13 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
     }
 
     if (url.pathname === "/api/auth/login") {
-      const { username, password } = body;
-      if (!username || !password) {
+      const { userId, password } = body;
+      if (!userId || !password) {
         return new Response("아이디와 비밀번호를 입력해주세요.", { status: 400 });
       }
 
       // 사용자 정보 조회
-      const user = await env.DB.prepare("SELECT * FROM users WHERE username = ?").bind(username).first<any>();
+      const user = await env.DB.prepare("SELECT * FROM users WHERE user_id = ?").bind(userId).first<any>();
       if (!user) {
         return new Response("존재하지 않는 아이디입니다.", { status: 401 });
       }
@@ -157,9 +162,19 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
         }
 
         // JWT 토큰 생성
-        const token = await signJWT({ sub: user.id, username: user.username, birthdate: user.birthdate });
+        const token = await signJWT({ 
+          sub: user.id, 
+          userId: user.user_id, 
+          userName: user.user_name, 
+          birthdate: user.birthdate 
+        });
 
-        return new Response(JSON.stringify({ token, username: user.username, birthdate: user.birthdate }), {
+        return new Response(JSON.stringify({ 
+          token, 
+          userId: user.user_id, 
+          userName: user.user_name, 
+          birthdate: user.birthdate 
+        }), {
           headers: { "Content-Type": "application/json" }
         });
       } catch (jwtError) {
