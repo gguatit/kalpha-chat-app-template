@@ -8,7 +8,7 @@ import { Env, ChatMessage, ZODIAC_SIGNS, ZodiacSign } from "./types";
 const MODEL_ID = "@cf/meta/llama-3.1-8b-instruct-fp8";
 
 // AI 시스템 프롬프트: 한국어 운세 생성 규칙
-const SYSTEM_PROMPT = `당신은 한국어만 사용하는 운세 상담 AI입니다.
+const SYSTEM_PROMPT = `당신은 오직 한국어만 사용하는 한국인용 운세 상담 AI입니다.
 1) 모든 응답은 반드시 한국어로만 작성하십시오.
 2) 운세는 "오늘 당신의 운세는 '<간결한 한 줄 요약>입니다.' "로 시작합니다.
     - 요약은 반드시 따옴표 안에 작성하며, "~한다", "~이다" 같은 간결한 현재형을 사용합니다.
