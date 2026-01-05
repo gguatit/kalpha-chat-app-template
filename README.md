@@ -18,9 +18,8 @@ Cloudflare Workers AI와 D1 Database를 기반으로 구축된 풀스택 한국�
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Security](#security)
-- [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
 - [API Reference](#api-reference)
+- [Database Schema](#database-schema)
 - [License](#license)
 
 ## Architecture
@@ -71,9 +70,11 @@ graph TB
 
 - **Llama 3.1 8B Instruct FP8** 모델 기반 운세 생성
 - 생년월일과 목표 날짜를 기반으로 한 맞춤형 분석
-- **12별자리(서양 점성술)** 자동 계산 및 운세 특성 반영
-  - 별자리별 세부 특성 (에너지, 감성, 집중력, 직관력 등) 자연스럽게 운세에 통합
+- **12별자리(서양 점성술)** 완전 통합 ✅
+  - 자동 별자리 계산 및 UI 표시
+  - 별자리별 세부 특성 (열정, 안정, 소통, 감성, 자신감, 세심함, 균형, 직관, 모험, 목표, 독창성, 상상력) AI 운세에 자연스럽게 통합
   - 12개 별자리(양자리~물고기자리) 각각의 강점과 주의사항 맞춤 반영
+  - `ZODIAC_SIGNS` 상수 배열로 관리 (`src/types.ts`)
 - 긍정적/부정적 조언의 균형잡힌 제공 (70% 긍정, 30% 주의)
 - **간결한 운세 형식**: "오늘 당신의 운세는 '<한 줄 요약>' 입니다." 형식 사용
   - 예: "오늘 당신의 운세는 '새로운 기회가 찾아온다' 입니다."
@@ -98,33 +99,36 @@ graph TB
 - 모바일 최적화 UI (숫자 키패드 입력 지원)
 - 날짜 증감 버튼으로 편리한 날짜 조정
 - '오늘' 버튼으로 빠른 날짜 초기화
-- **12별자리 자동 표시** (생년월일 설정 시 채팅창에 표시)
+- **12별자리 자동 표시** ✅ (생년월일 설정 시 채팅창에 실시간 표시)
+  - 별자리 아이콘 + 한국어명 + 영어명 + 날짜 범위
+  - 실시간 계산 및 업데이트
 - LocalStorage 기반 채팅 기록 및 설정 유지
 - 비밀번호 표시/숨김 토글
+- 반응형 디자인 (모바일/태블릿/데스크톱)
 
 ## Tech Stack
 
-### Runtime & Infrastructure
-- **Cloudflare Workers**: 글로벌 엣지 컴퓨팅 플랫폼
-- **Cloudflare D1**: 서버리스 SQLite 데이터베이스
-- **Cloudflare Workers AI**: 엣지에서 실행되는 AI 추론
+### 프론트엔드 (Frontend)
+- **언어**: Vanilla JavaScript (ES6+), HTML5, CSS3
+- **프레임워크**: 없음 (순수 JavaScript)
+- **상태 관리**: LocalStorage
+- **실시간 통신**: Server-Sent Events (SSE)
+- **UI 특징**: 반응형 디자인, 모바일 최적화
 
-### Backend
-- **Language**: TypeScript 5.8
-- **AI Model**: @cf/meta/llama-3.1-8b-instruct-fp8
-- **Authentication**: Custom JWT implementation
-- **Password Hashing**: PBKDF2 (SHA-256, 100,000 iterations)
+### 백엔드 (Backend)
+- **언어**: TypeScript 5.8
+- **런타임**: Cloudflare Workers (V8 Engine)
+- **AI 모델**: Llama 3.1 8B Instruct FP8 (@cf/meta/llama-3.1-8b-instruct-fp8)
+- **데이터베이스**: Cloudflare D1 (SQLite 기반)
+- **인증**: Custom JWT (HS256, Web Crypto API)
+- **비밀번호 암호화**: PBKDF2-HMAC-SHA256 (100,000 iterations)
 
-### Frontend
-- **UI**: Vanilla JavaScript, HTML5, CSS3
-- **State Management**: LocalStorage
-- **Streaming**: Server-Sent Events (SSE)
-- **Input Handling**: Native browser APIs
-
-### Development Tools
-- **Build**: Wrangler 4.21.x
-- **Type Checking**: TypeScript
-- **Testing**: Vitest 3.2.4
+### 인프라 & 서비스
+- **호스팅**: Cloudflare Workers (Edge Computing)
+- **데이터베이스**: Cloudflare D1 (Serverless SQLite)
+- **AI 추론**: Cloudflare Workers AI
+- **정적 자산**: Cloudflare Workers Assets
+- **아키텍처**: 완전 서버리스 (Serverless)
 
 ## Security
 
@@ -209,175 +213,9 @@ function sanitize(str: string): string {
 - 길이: 8-20자
 - 모든 문자 허용
 
-## Getting Started
-
-### Prerequisites
-
-```bash
-Node.js 18 or higher
-Wrangler CLI
-Cloudflare account with Workers, D1, and AI access
-```
-
-### Installation
-
-1. **Clone the repository**
-
-```bash
-git clone https://github.com/gguatit/Today-s-horoscope.git
-cd Today-s-horoscope
-```
-
-2. **Install dependencies**
-
-```bash
-npm install
-```
-
-3. **Authenticate with Cloudflare**
-
-```bash
-npx wrangler login
-```
-
-4. **Create D1 Database**
-
-```bash
-npx wrangler d1 create horoscope-db
-```
-
-생성된 `database_id`를 복사하여 `wrangler.jsonc` 파일의 `d1_databases` 섹션에 입력합니다.
-
-```jsonc
-{
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "horoscope-db",
-      "database_id": "YOUR_DATABASE_ID_HERE"
-    }
-  ]
-}
-```
-
-5. **Initialize Database Schema**
-
-```bash
-# Local development
-npx wrangler d1 execute horoscope-db --local --file=./db/schema.sql
-
-# Production
-npx wrangler d1 execute horoscope-db --remote --file=./db/schema.sql
-```
-
-6. **Run Development Server**
-
-```bash
-npm run dev
-```
-
-Application will be available at `http://localhost:8787`
-
-7. **Deploy to Production**
-
-```bash
-npm run deploy
-```
-
-### Environment Configuration
-
-`wrangler.jsonc` 파일에서 다음 설정을 구성할 수 있습니다:
-
-- **AI Binding**: Workers AI 모델 접근
-- **D1 Database**: 데이터베이스 연결 설정
-- **Assets**: 정적 파일 제공 경로
-- **Compatibility Flags**: Node.js 호환성 설정
-
-## Project Structure
-
-```
-Today-s-horoscope/
-├── src/                      # Backend (TypeScript)
-│   ├── index.ts              # Application entry point & API routes
-│   │   ├── handleAuthRequest()    # Authentication endpoints
-│   │   ├── handleChatRequest()    # AI chat endpoint with SSE streaming
-│   │   ├── hashPassword()         # PBKDF2 password hashing
-│   │   ├── signJWT()              # JWT token generation
-│   │   ├── verifyJWT()            # JWT token verification
-│   │   └── sanitize()             # XSS prevention utility
-│   └── types.ts              # TypeScript type definitions
-│       ├── ChatMessage            # Chat message interface
-│       ├── ZodiacSign             # 12별자리 데이터 구조
-│       └── ZODIAC_SIGNS           # 12별자리 상수 배열
-│
-├── public/                   # Frontend (Static Assets)
-│   ├── index.html            # Main application view
-│   ├── css/
-│   │   └── styles.css        # Responsive UI styling (mobile-optimized)
-│   └── js/
-│       └── app.js            # Frontend controller & state management
-│           ├── Authentication UI      # Login/Signup modal handling
-│           ├── Chat Interface         # Message rendering & SSE handling
-│           ├── Date Input Controls    # Birthdate/target date management
-│           ├── Zodiac Calculator      # 12별자리 자동 계산 및 표시
-│           └── LocalStorage Manager   # Session & history persistence
-│
-├── db/                       # Database (SQL)
-│   └── schema.sql            # D1 database schema
-│
-├── types/                    # TypeScript Definitions
-│   └── cloudflare-env.d.ts   # Cloudflare Workers runtime types
-│
-├── wrangler.jsonc            # Cloudflare Workers configuration
-├── tsconfig.json             # TypeScript configuration
-└── package.json              # Project dependencies & scripts
-```
-
-### Key Files Description
-
-**`src/index.ts`** (477 lines)
-- **API 라우팅**: `/api/auth/*` (회원가입/로그인), `/api/chat` (AI 채팅)
-- **JWT 인증**: HS256 서명, 토큰 생성/검증
-- **PBKDF2 해싱**: 100,000 iterations, UUID salt
-- **Workers AI 통합**: Llama 3.1 8B 모델, SSE 스트리밍 응답
-- **D1 쿼리**: Prepared statements로 SQL injection 방지
-- **최적화된 SYSTEM_PROMPT**: 8가지 핵심 규칙 + 12별자리 특성 가이드라인
-  - 간결한 운세 형식: "오늘 당신의 운세는 '<요약>' 입니다."
-  - 별자리별 상세 특성 (열정, 안정, 소통, 감성, 자신감, 세심함, 균형, 직관, 모험, 목표, 독창성, 상상력)
-
-**`src/types.ts`** (67 lines)
-- **Env**: Cloudflare Workers 환경 바인딩 (AI, DB, ASSETS)
-- **ChatMessage**: `{role, content}` 채팅 메시지 구조
-- **ZodiacSign**: 12별자리 데이터 구조
-  - `name`: 한국어 별자리명 (예: "양자리", "황소자리")
-  - `nameEn`: 영어 별자리명 (Aries, Taurus 등)
-  - `start`, `end`: 별자리 기간 (MMDD 형식)
-  - `traits`: 별자리 특성 설명
-- **ZODIAC_SIGNS**: 12별자리 상수 배열 (양자리~물고기자리, 날짜 범위 포함)
-
-**`public/js/app.js`** (JavaScript)
-- **인증 UI**: 로그인/회원가입 모달, JWT 토큰 관리
-- **SSE 스트리밍**: 실시간 AI 응답 처리, 타이핑 인디케이터
-- **별자리 계산**: `calculateZodiacSign()`, `updateZodiacDisplay()`
-- **날짜 입력**: 증감 버튼, 숫자 키패드 최적화
-- **LocalStorage**: 채팅 기록, 세션 유지
-- **한국어 검증**: 비한국어 입력 차단 및 재작성 요청
-
-**`public/css/styles.css`** (699 lines)
-- **반응형 디자인**: 모바일/데스크톱 최적화
-- **터치 UI**: 44px 최소 터치 영역, Safe Area 지원
-- **CSS 변수**: `--primary-color`, `--user-msg-bg` 등 테마 설정
-
-**`types/cloudflare-env.d.ts`** (7,334 lines, generated)
-- Cloudflare Workers runtime 타입 정의
-- Wrangler `npm run cf-typegen`으로 자동 생성
-- D1, AI, ASSETS 바인딩 타입
-
-**`db/schema.sql`**
-- `users` 테이블: id, username, password_hash, salt, birthdate
-- UNIQUE 제약조건, AUTOINCREMENT primary key
-
 ## API Reference
+
+
 
 ### Authentication Endpoints
 
@@ -477,30 +315,25 @@ CREATE TABLE users (
 );
 ```
 
-## Development
-
-### Type Checking
-
-```bash
-npm run check
-```
-
-### Dry Run Deployment
-
-```bash
-wrangler deploy --dry-run
-```
-
-### Generate Types
-
-```bash
-npm run cf-typegen
-```
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-Built with Cloudflare Workers, D1, and Workers AI
+**Built with ❤️ using:**
+- [Cloudflare Workers](https://workers.cloudflare.com/) - Edge computing platform
+- [Cloudflare D1](https://developers.cloudflare.com/d1/) - Serverless SQLite database
+- [Workers AI](https://developers.cloudflare.com/workers-ai/) - Llama 3.1 8B Instruct FP8
+- Vanilla JavaScript - No frontend frameworks
+- TypeScript 5.8 - Type safety
+
+**프로젝트 현황:**
+- ✅ 핵심 운세 챗봇 기능 완성
+- ✅ 12별자리 통합 완료 (계산, UI 표시, AI 특성 반영)
+- ✅ JWT 인증 및 PBKDF2 보안
+- ✅ SSE 실시간 스트리밍
+- ✅ 모바일 최적화 UI
+- 🚧 자동화 테스트 (향후 추가 예정)
+
+**Live Demo**: [https://kalpha.c01.kr](https://kalpha.c01.kr)
